@@ -124,12 +124,17 @@ h1 small{display:block;font-family:var(--font-label);font-size:.62rem;font-weigh
 .ev-m{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
 .ev-m .chip{font-size:.7rem;padding:1px 8px}
 .ev-m .nf{background:var(--paper);color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--c)}
-.ev-t{grid-column:2;font-size:.86rem;font-weight:500;line-height:1.45;word-break:break-word}
+.ev-t{grid-column:2;font-size:.95rem;font-weight:700;line-height:1.4;word-break:break-word}
 .ev-o{grid-column:2;font-size:.72rem;color:var(--muted)}
 .ths{grid-column:2;display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
-.ths a{flex:none;width:112px;text-decoration:none;font-size:.66rem;color:var(--ink-soft)}
-.ths img,.ths .ph{display:block;width:112px;aspect-ratio:16/9;object-fit:cover;border-radius:4px;border-bottom:3px solid var(--c);background:var(--grid)}
-.ths span{display:block;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ths{align-items:flex-start}
+.ths a{flex:none;width:150px;text-decoration:none;font-size:.7rem;color:var(--ink-soft)}
+.ths img,.ths .ph{display:block;width:150px;aspect-ratio:16/9;object-fit:cover;border-radius:4px;border-bottom:3px solid var(--c);background:var(--grid)}
+.ths span{display:block;margin-top:3px;line-height:1.4}
+.ths b{display:block;font-weight:700;color:var(--ink)}
+.ths em{font-style:normal;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.ths a:hover em{text-decoration:underline}
+@media (max-width:640px){.ths a,.ths img,.ths .ph{width:128px}}
 .more{display:block;margin:12px auto 0;border:1.5px solid var(--ui);background:var(--paper);color:var(--ui-d);border-radius:99px;padding:7px 22px;font-weight:700;font-size:.85rem}
 .empty{color:var(--muted);font-size:.85rem;padding:20px 0;text-align:center}
 
@@ -392,13 +397,16 @@ function renderCo(){
   for(const e of hit.slice(0,shown)){
     const d=new Date(e.s),mon=`${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}`;
     if(mon!==lastMon){h+=`<p class="mon">${mon}</p>`;lastMon=mon}
-    const rep=e.entries.find(x=>x.own)||e.entries[0];
+    // 見出しはゲーム名。人によって書き方が違う（OW／オーバーウォッチ など）ので、いちばん多い書き方を1つだけ出す
+    const gc={};for(const x of e.entries)if((x.own||x.shared)&&x.game){const k=x.game.toLowerCase();(gc[k]=gc[k]||{n:0,g:x.game}).n++}
+    const top=Object.values(gc).sort((a,b)=>b.n-a.n)[0];
+    const head=top?top.g:cleanTitle((e.entries.find(x=>x.own)||e.entries[0]).title);
     const mem=e.members.map(m=>{const x=e.own.get(m);return `<span class="chip${x?"":" nf"}" style="--c:${m.c};--ci:${m.ci}" title="${x?"本人の枠あり":"本人の枠なし"}">${esc(m.short)}</span>`}).join("");
     const th=e.members.filter(m=>e.own.get(m)).map(m=>{const x=e.own.get(m);
-      return `<a href="${esc(x.url)}" target="_blank" rel="noopener" style="--c:${m.c}">${x.thumb?`<img src="${esc(x.thumb)}" alt="" loading="lazy">`:`<i class="ph"></i>`}<span>${esc(m.short)}の枠</span></a>`}).join("");
-    const official=e.entries.filter(x=>x.shared).map(x=>`<a href="${esc(x.url)}" target="_blank" rel="noopener" style="--c:var(--ui)">${x.thumb?`<img src="${esc(x.thumb)}" alt="" loading="lazy">`:`<i class="ph"></i>`}<span>${esc(x.channel||"公式")}</span></a>`).join("");
+      return `<a href="${esc(x.url)}" target="_blank" rel="noopener" style="--c:${m.c}">${x.thumb?`<img src="${esc(x.thumb)}" alt="" loading="lazy">`:`<i class="ph"></i>`}<span><b>${esc(m.short)}</b><em>${esc(cleanTitle(x.title))}</em></span></a>`}).join("");
+    const official=e.entries.filter(x=>x.shared).map(x=>`<a href="${esc(x.url)}" target="_blank" rel="noopener" style="--c:var(--ui)">${x.thumb?`<img src="${esc(x.thumb)}" alt="" loading="lazy">`:`<i class="ph"></i>`}<span><b>${esc(x.channel||"公式")}</b><em>${esc(cleanTitle(x.title))}</em></span></a>`).join("");
     h+=`<div class="ev"><div class="ev-d">${d.getMonth()+1}/${d.getDate()}<small>${WD[d.getDay()]} ${hm(e.s)}</small></div>
-      <div class="ev-m">${mem}</div><div class="ev-t">${esc(cleanTitle(rep.title))}</div>
+      <div class="ev-m">${mem}</div><div class="ev-t">${esc(head)}</div>
       ${th||official?`<div class="ths">${th}${official}</div>`:""}
       ${e.others.length?`<div class="ev-o">ほか：${e.others.map(esc).join("、")}</div>`:""}</div>`;
   }
