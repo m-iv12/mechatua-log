@@ -74,7 +74,14 @@ h1 b{display:block;font-weight:700}
 .round{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--ui);background:var(--paper);display:grid;place-items:center;padding:0;color:var(--ui)}
 .round svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .ghost{border:1.5px solid var(--ui);background:var(--paper);color:var(--ui-d);border-radius:99px;padding:5px 14px;font-weight:700;font-size:.85rem}
-.wk-label{font-family:var(--font-label);font-weight:600;font-size:1.1rem;letter-spacing:.03em;min-width:9.5em}
+.wk-label{font-family:var(--font-label);font-weight:600;font-size:1.1rem;letter-spacing:.03em}
+/* 週の表示を押すと日付選択が開き、選んだ日の週へ移動する（昔の週へすぐ戻れるように） */
+.wk-pick{position:relative;display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:8px;cursor:pointer;min-width:10.5em}
+.wk-pick:hover{background:rgb(255 255 255 / .55)}
+.wk-pick svg{width:14px;height:14px;fill:none;stroke:var(--ui);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.wk-pick input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0}
+.wk-pick input::-webkit-calendar-picker-indicator{position:absolute;inset:0;width:100%;height:100%;cursor:pointer}
+@media (max-width:640px){body.page-co .links{display:none}}   /* スマホのコラボ記録では各メンバーへのリンクを出さない（ホームへ戻るのみ） */
 .now-box{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-left:auto;font-size:.8rem;color:var(--ink-soft)}
 .now-box b{font-family:var(--font-label);font-size:.66rem;letter-spacing:.16em;color:var(--now)}
 .chip{display:inline-flex;align-items:center;gap:4px;border-radius:99px;padding:2px 9px;font-size:.76rem;font-weight:700;background:var(--c);color:var(--ci);text-decoration:none;border:0;white-space:nowrap}
@@ -253,7 +260,8 @@ h1 b{display:block;font-weight:700}
   <section class="card clip" id="p-week">
     <div class="nav">
       <button class="round" id="prev" aria-label="前の週"><svg viewBox="0 0 16 16"><path d="M10 3 5 8l5 5"/></svg></button>
-      <span class="wk-label" id="wk-label"></span>
+      <label class="wk-pick" title="日付を選んでその週へ移動"><span class="wk-label" id="wk-label"></span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>
+        <input type="date" id="wk-date" aria-label="日付を選んでその週へ移動"></label>
       <button class="round" id="next" aria-label="次の週"><svg viewBox="0 0 16 16"><path d="M6 3l5 5-5 5"/></svg></button>
       <button class="ghost" id="today">今週</button>
       <div class="now-box" id="now-box"></div>
@@ -448,6 +456,8 @@ function buildEvents(){
 function renderWeek(){
   const ws=sow(cursor-OFF),now=Date.now(),today=sod(now-OFF);
   $("wk-label").textContent=`${new Date(ws).getFullYear()}年 ${md(ws)} – ${md(addDays(ws,6))}`;
+  const iso=t=>{const d=new Date(t);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
+  $("wk-date").value=iso(ws);$("wk-date").min="2023-04-01";$("wk-date").max=iso(addDays(now,90));
   // 配信中
   const next=entries.filter(x=>x.own&&x.s>now).sort((a,b)=>a.s-b.s).slice(0,3);
   $("now-box").innerHTML=(next.length?`<b style="color:var(--muted)">NEXT</b>`+next.map(x=>`<button class="chip" data-k="${entries.indexOf(x)}" style="--c:${x.m.c};--ci:${x.m.ci}">${esc(x.m.short)} ${new Date(x.s).getDate()}日 ${hm(x.s)}</button>`).join(""):"");
@@ -577,11 +587,14 @@ function renderTop(){
     if(who==="all")o.all=true;else o.who.add(who);if(!o.url&&x.url)o.url=x.url;map.set(k,o)};
   SHARED_DL.forEach(x=>add(x,"all"));M.forEach(m=>m.dl.forEach(x=>add(x,m)));
   DL_ALL=[...map.values()].sort((a,b)=>a.t-b.t);
-  const list=DL_ALL.slice(0,3);   // 上部には近いものから3件。残りは「すべて見る」で
+  const n=PHONE.matches?1:3;   // 上部には近いものから PC は3件、スマホは1件。残りは「すべて見る」で
+  const list=DL_ALL.slice(0,n);
   $("dls").innerHTML=(list.length?dlHTML(list):`<p class="none">近い締切はありません</p>`)+
-    (DL_ALL.length>3?`<button class="dl-more" id="dl-more">すべて見る（${DL_ALL.length}件）</button>`:"");
+    (DL_ALL.length>n?`<button class="dl-more" id="dl-more">すべて見る（${DL_ALL.length}件）</button>`:"");
 }
 let DL_ALL=[];
+const PHONE=matchMedia("(max-width:640px)");
+PHONE.addEventListener("change",()=>{if(tab==="week")renderTop()});
 function dlHTML(list){
   const now=Date.now();
   return list.map(d=>{const days=Math.ceil((sod(d.t)-sod(now))/DAY);
@@ -602,6 +615,7 @@ const tab=/collab\.html$/.test(location.pathname)?"co":"week";
 // 以前の URL（index.html#co/〜）で開かれたら、コラボ記録のページへ移す
 if(tab==="week"&&location.hash.startsWith("#co"))location.replace("collab.html"+(location.hash.split("/")[1]?"#"+location.hash.split("/")[1]:""));
 function setupPage(){
+  document.body.classList.toggle("page-co",tab==="co");
   $("top").hidden=tab!=="week";$("p-week").hidden=tab!=="week";$("p-co").hidden=tab!=="co";
   $("to-co").hidden=tab!=="week";$("back-home").hidden=tab!=="co";
   $("page-title").textContent=tab==="co"?"コラボ記録":"配信スケジュール";
@@ -617,6 +631,9 @@ function setHash(){if(tab!=="co")return;const h=[...selected].map(r=>r.replace(/
   history.replaceState(null,"",h?"#"+h:location.pathname)}
 function readHash(){if(tab!=="co")return;const h=location.hash.slice(1).replace(/^co\/?/,"");if(h)h.split("+").forEach(s=>selected.add(s+"-log"))}
 
+$("wk-date").addEventListener("change",e=>{if(!e.target.value)return;const[y,m,d]=e.target.value.split("-").map(Number);cursor=new Date(y,m-1,d,12).getTime();renderWeek()});
+// 日付選択に対応していない環境でも、押せば開くように
+$("wk-date").addEventListener("click",e=>{try{e.target.showPicker()}catch(_){}});
 $("prev").onclick=()=>{cursor=addDays(cursor,-7);renderWeek()};
 $("next").onclick=()=>{cursor=addDays(cursor,7);renderWeek()};
 $("today").onclick=()=>{cursor=Date.now();renderWeek()};  // cursor は実時刻。6時前なら前日扱い（sow(cursor-OFF)）
