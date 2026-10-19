@@ -1,0 +1,49 @@
+name: 全員分の締切を追加
+
+# 各メンバーのページの「追加」→締切→対象「MECHATU-A 全員」から作られた Issue を読み、
+# common/deadlines.json に書き足す（8人のページとまとめページの両方に表示される）
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  add:
+    # リポジトリの持ち主が作った「[追加]」の Issue だけを受け付ける
+    if: >-
+      github.event.issue.user.login == github.repository_owner &&
+      startsWith(github.event.issue.title, '[追加]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Add item from issue
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: python common/add_item.py
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add common/*.json
+          git diff --cached --quiet || git commit -m "全員分の締切を追加"
+          git pull --rebase
+          git push
+
+      - name: Close issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue close ${{ github.event.issue.number }} --repo ${{ github.repository }} --comment "反映しました。数分後に各ページに表示されます。"
+
+      - name: Report failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body "登録に失敗しました。Actions タブのログを確認してください。"
