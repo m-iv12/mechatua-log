@@ -365,6 +365,9 @@ h1 .br::before{content:"　"}
 .label-btn{border:0;background:transparent;padding:2px 22px 2px 6px;margin:-2px -6px;border-radius:8px;text-align:left;font:inherit;color:inherit;position:relative;cursor:pointer}
 .label-btn::after{content:"";position:absolute;right:6px;bottom:9px;width:7px;height:7px;border-right:2px solid var(--main);border-bottom:2px solid var(--main);transform:rotate(45deg)}
 .label-btn:hover{background:var(--main-xl)}
+/* 週の期間は1行に収める（月表示と切り替えても高さが変わらないように） */
+.nav h2{white-space:nowrap}
+.wk-rg{letter-spacing:.01em}
 .label-btn[aria-expanded="true"]::after{transform:rotate(-135deg);bottom:5px}
 body.mode-list .label-btn{pointer-events:none;padding-right:6px}
 body.mode-list .label-btn::after{display:none}
@@ -440,6 +443,7 @@ h1{font-size:1rem;letter-spacing:.02em;white-space:nowrap}
   .seg{width:100%}
   .seg button{flex:1}
   .nav h2{font-size:1.2rem}
+  .wk-rg{font-size:.9em}
   .summary{flex-wrap:wrap;overflow:visible;gap:8px}
   .stat{flex-direction:column;align-items:center;justify-content:center;width:76px;height:66px;padding:0;gap:0}
   .stat small:first-child{display:block}
@@ -716,7 +720,7 @@ function renderWeek(){
   measure();
   const ws=sow(cursor),we=addDays(ws,7),today=sod(Date.now());
   const s=new Date(ws),e=new Date(addDays(ws,6));
-  $("label").innerHTML=`<small>${s.getFullYear()}年</small>${s.getMonth()+1}/${s.getDate()} – ${e.getMonth()+1}/${e.getDate()}`;
+  $("label").innerHTML=`<small>${s.getFullYear()}年</small><span class="wk-rg">${s.getMonth()+1}/${s.getDate()}–${e.getMonth()+1}/${e.getDate()}</span>`;
   let head='<div class="wk-grid wk-head"><div></div>',body='<div class="wk-grid"><div class="gutter">';
   for(let h=1;h<24;h++)body+=`<span style="top:calc(${h} * var(--hh))">${h}</span>`;
   body+="</div>";
