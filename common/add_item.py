@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 DATA = Path(__file__).resolve().parent
+NO_YOUTUBE = "/tmp/shared/no_youtube"   # fetch_streams.py への合図
 
 
 def load(name, default):
@@ -101,6 +102,10 @@ def main():
     else:
         sys.exit("type が読み取れません")
     print("追加しました:", t)
+    # ポスト・締切は YouTube のデータを使わないので、このあとの取得では YouTube に問い合わせない（API の使用量を節約）
+    if t in ("post", "deadline", "schedule"):
+        Path(NO_YOUTUBE).parent.mkdir(parents=True, exist_ok=True)
+        Path(NO_YOUTUBE).touch()
 
 
 if __name__ == "__main__":

@@ -17,6 +17,7 @@ import os
 import re
 import unicodedata
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -113,8 +114,13 @@ def keyword_pattern(words):
     return re.compile("|".join(parts), re.I) if parts else None
 
 
+CHANNELS = {}   # チャンネルの名前とアップロード再生リスト ID の控え（cache_meta.json に保存し、毎回の問い合わせを省く）
+
+
 def resolve_channel(ref):
     """@ハンドル または UC で始まるチャンネル ID から (チャンネル名, アップロード再生リスト ID) を返す。"""
+    if ref in CHANNELS and not FULL:
+        return tuple(CHANNELS[ref])
     if ref.startswith("UC"):
         res = call("channels", part="contentDetails,snippet", id=ref)
     else:
@@ -123,7 +129,8 @@ def resolve_channel(ref):
     if not items:
         print(f"チャンネルが見つかりません: {ref}")
         return None, None
-    return items[0]["snippet"]["title"], items[0]["contentDetails"]["relatedPlaylists"]["uploads"]
+    CHANNELS[ref] = [items[0]["snippet"]["title"], items[0]["contentDetails"]["relatedPlaylists"]["uploads"]]
+    return tuple(CHANNELS[ref])
 
 
 def list_uploads(playlist, since, known=None, max_pages=None):
@@ -340,6 +347,42 @@ def my_unit_channels():
             for ch, u in UNIT_CHANNELS.items() if me in (m.lower() for m in u["members"])]
 
 
+# グループ名：本人の枠がない配信でも、タイトルの書き方から出演していると分かる場合だけ出演として扱う
+GROUPS = {
+    "MECHATU-A": {"words": ["MECHATU-A", "MECHATUA", "めちゃつえー", "めちゃつえ〜", "めちゃつえ"],
+                  "members": ["@SaikiIttetsu", "@AkagiWen", "@UsamiRito", "@HibachiMana",
+                              "@HoshirubeSho", "@MurakumoKagetsu", "@KoyanagiRou", "@InamiRai"]},
+    "Dytica": {"words": ["Dytica", "ディティカ"],
+               "members": ["@HoshirubeSho", "@MurakumoKagetsu", "@KoyanagiRou", "@InamiRai"]},
+    "Oriens": {"words": ["Oriens", "オリエンス"],
+               "members": ["@SaikiIttetsu", "@AkagiWen", "@UsamiRito", "@HibachiMana"]},
+}
+APPEAR_CUE_RE = re.compile(r"コラボ|(?<![a-z])with(?![a-z])|w\s*[/／]|ｗ\s*[/／]", re.I)
+
+
+def my_group_pattern():
+    me = CONFIG.get("channel", "").lower()
+    words = [w for g in GROUPS.values() if me in (m.lower() for m in g["members"]) for w in g["words"]]
+    return "|".join(re.escape(w) for w in sorted(words, key=len, reverse=True))
+
+
+def group_appearance(title):
+    """タイトルに自分のグループ名が、出演者の表記として書かれているか。
+    ・末尾の【 】の中にある（例：【 MECHATU-A / にじさんじ 】）
+    ・「/MECHATU-A」のように「/」の直後にある
+    ・「コラボ」「with」「w/」と一緒に書かれている
+    「"Dytica編"」のように話題として名前があるだけのものは当たらない。"""
+    pat = my_group_pattern()
+    if not pat or not re.search(pat, title, re.I):
+        return False
+    last = re.findall(r"【([^】]*)】", title)
+    if last and re.search(pat, last[-1], re.I) and title.rstrip().endswith("】"):
+        return True
+    if re.search(r"[/／]\s*(?:" + pat + ")", title, re.I):
+        return True
+    return bool(APPEAR_CUE_RE.search(title))
+
+
 def my_keywords():
     """config.json の collab_keywords に、自分が入っているユニット名を足したもの。"""
     me = CONFIG.get("channel", "").lower()
@@ -466,7 +509,12 @@ def merge(own, partners, own_name):
         elif p.get("source") in ("manual", "watch"):
             # 本人の枠がない配信は、手動で登録したものと指定チャンネルのものだけ表示する
             items[p["id"]] = dict(p, collabs=[])
-        # 自動で拾ったもので本人の配信と重ならないものは、無関係の可能性があるので表示しない
+        elif p.get("source") == "auto" and ((kw and kw.search(p["title"])) or group_appearance(p["title"])):
+            # 自動で拾ったものでも、相手のタイトルに自分の名前（またはユニット名）があるか、
+            # 自分のグループ名（MECHATU-A・Dytica・Oriens）が出演者として書かれていれば、
+            # 本人の枠なしで出演した配信として表示する（概要欄だけで当たったものは表示しない）
+            items[p["id"]] = dict(p, collabs=[])
+        # それ以外（概要欄でだけ名前が当たったもの）は、無関係の可能性があるので表示しない
 
     # 手動の予定（枠が立ったら、同じ時間帯の枠があるので自動的に消える）
     for i, s in enumerate(load(DATA / "schedule.json", [])):
@@ -543,12 +591,42 @@ def main():
     if meta.get("channel") != CONFIG["channel"]:
         print(f"channel が {meta.get('channel')} → {CONFIG['channel']} に変わったため全件を取り直します")
         FULL = True
-    own, own_name = update_own(since)
+    CHANNELS.update(meta.get("channels", {}))
     scanned = set() if FULL else set(meta.get("scanned_channels", []))
-    partners = update_partners(since, scanned)
+    own_name = meta.get("own_name") or CONFIG.get("name") or ""
+    fetched = False
+    if os.path.exists("/tmp/shared/no_youtube") and not FULL:
+        # ポスト・締切・予定の追加だけのときは YouTube に問い合わせず、保存済みのデータで表示用データを作り直す
+        print("ポスト・締切・予定の追加のため、YouTube への問い合わせは省きます")
+        own, partners = load(OWN_CACHE, {}), load(PARTNER_CACHE, {})
+    else:
+        try:
+            own, own_name = update_own(since)
+            partners = update_partners(since, scanned)
+            fetched = True
+        except urllib.error.URLError as e:   # HTTPError（403 など）と通信の失敗の両方
+            # API の1日の使用量の上限（quotaExceeded）などで取得できないときは、保存済みのデータで続ける。
+            # ポストや締切の追加はそのまま保存される。配信は次に取得できたときに反映される
+            reason = ""
+            try:
+                reason = json.loads(e.read().decode()).get("error", {}).get("errors", [{}])[0].get("reason", "")
+            except Exception:
+                pass
+            print(f"::warning::YouTube から取得できませんでした（{getattr(e, 'code', '')} {reason or getattr(e, 'reason', '')}）。保存済みのデータで続けます。"
+                  + ("1日の使用量の上限に達しています。日本時間の16時（冬時間は17時）に回復します。" if reason in ("quotaExceeded", "dailyLimitExceeded") else ""))
+            own, partners = load(OWN_CACHE, {}), load(PARTNER_CACHE, {})
+            scanned = set(meta.get("scanned_channels", []))
+    if not fetched:
+        own_name = own_name or next((v.get("channel") for v in own.values() if v.get("channel")), "")
     data = merge(own, partners, own_name)
     save(OUT, data)
-    save(DATA / "cache_meta.json", {"since": CONFIG["since"], "channel": CONFIG["channel"], "scanned_channels": sorted(scanned)})
+    if not fetched:
+        # 取得していないときは、全件の取り直しが必要かどうかの記録（since・channel）を変えない
+        own_name = own_name or next((v.get("channel") for v in own.values() if v.get("channel")), "")
+        save(DATA / "cache_meta.json", dict(meta, own_name=own_name, channels=CHANNELS))
+    else:
+        save(DATA / "cache_meta.json", {"since": CONFIG["since"], "channel": CONFIG["channel"], "scanned_channels": sorted(scanned),
+                                        "own_name": own_name, "channels": CHANNELS})
     print(f"表示用データ: {len(data)} 件")
     fill_post_texts()
 
