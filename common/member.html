@@ -152,9 +152,16 @@ h1{margin:0;font-family:var(--font-body);font-weight:700;font-size:clamp(1.3rem,
 .ev .gl{font-family:var(--font-body);font-size:.66rem;border:1px solid currentColor;border-radius:99px;padding:0 5px;margin-top:2px;opacity:.85}
 .ev.guest{outline:1.5px dashed var(--main-d);outline-offset:-3px}
 /* ポスト＝小さな丸、告知＝塗りつぶし */
-.post{position:absolute;right:-2px;width:20px;height:20px;margin-top:-10px;border:0;background:transparent;padding:0;display:grid;place-items:center;z-index:2}
-.post::after{content:"";width:9px;height:9px;border-radius:50%;background:var(--paper);border:2px solid var(--main)}
-.post.ann::after{background:var(--main-d);border-color:var(--paper);box-shadow:0 0 0 1.5px var(--main-d)}
+/* ポスト：投稿時刻の位置に、本文の冒頭1行を細い長方形で出す（本文がまだ取れていなければ「ポスト」） */
+.post{position:absolute;left:3px;right:3px;height:15px;margin-top:-7px;z-index:3;display:flex;align-items:center;gap:3px;
+  border:1px solid var(--main-l);border-left:3px solid var(--main);border-radius:3px;background:rgb(255 255 255 / .94);
+  padding:0 4px 0 3px;font-size:.6rem;line-height:1;color:var(--ink);text-align:left;overflow:hidden;box-shadow:0 1px 2px rgb(var(--shade-rgb) / .18)}
+.post span{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.post b{font-family:var(--font-label);font-weight:600;font-size:.56rem;color:var(--main-d);flex:none}
+.post.ann{background:var(--main-d);border-color:var(--main-d);color:var(--on-main)}
+.post.ann b{color:var(--on-main);opacity:.85}
+.post:hover{z-index:4;box-shadow:0 0 0 1.5px var(--main)}
+@media (max-width:640px){.post b{display:none}.post{left:1px;right:1px;padding:0 2px;font-size:.56rem}}   /* スマホは列が細いので時刻を省き、本文だけ */
 .nowline{position:absolute;left:0;right:0;height:2px;background:var(--sun);z-index:3;pointer-events:none}
 .nowline::before{content:"";position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--sun)}
 .dl-tag{margin-top:3px;border:0;background:var(--memo-d);color:var(--ink);font-size:.6rem;font-weight:700;padding:1px 6px 1px 5px;line-height:1.4;
@@ -282,8 +289,8 @@ h1{margin:0;font-family:var(--font-body);font-weight:700;font-size:clamp(1.3rem,
 .note .note-data{flex-direction:column;gap:2px}
 .note .note-data li::before{content:"";width:4px;height:4px;border-radius:50%;background:var(--main-l);flex:none}
 .k{width:12px;height:12px;flex:none;display:inline-block}
-.k-post{border-radius:50%;background:var(--paper);border:2px solid var(--main);width:10px;height:10px}
-.k-ann{border-radius:50%;background:var(--main-d);width:10px;height:10px}
+.k-post{border-radius:2px;background:var(--paper);border:1px solid var(--main-l);border-left:3px solid var(--main);width:16px;height:9px}
+.k-ann{border-radius:2px;background:var(--main-d);width:16px;height:9px}
 .k-dl{width:16px;background:var(--memo-d);clip-path:polygon(0 0,100% 0,80% 50%,100% 100%,0 100%)}
 
 /* ---- 時刻の札（カード左上にはみ出す）---- */
@@ -763,7 +770,8 @@ function renderWeek(){
       body+=`<button class="ev gx${cut}${flags(x)}" style="top:${top}%;height:${ht}%" data-id="${x.id}" aria-label="${esc(x.title)} ${hm(x.start)}から">${inner}</button>`;
     });
     posts.filter(p=>p.time>=d0&&p.time<d1).forEach(p=>{
-      body+=`<button class="post${p.ann?" ann":""}" style="top:${(p.time-d0)/DAYMS*100}%" data-id="${p.id}" aria-label="ポスト ${hm(p.time)}"></button>`;
+      const line=(p.body||"").split("\n").map(t=>t.trim()).find(Boolean)||p.text;
+      body+=`<button class="post${p.ann?" ann":""}" style="top:${(p.time-d0)/DAYMS*100}%" data-id="${p.id}" title="${esc(hm(p.time)+" "+line)}" aria-label="ポスト ${hm(p.time)} ${esc(line)}"><b>${hm(p.time)}</b><span>${esc(line)}</span></button>`;
     });
     if(dd===today){body+=`<div class="nowline" style="top:${(Date.now()-d0)/DAYMS*100}%"></div>`}
     body+="</div>";
