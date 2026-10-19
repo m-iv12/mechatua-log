@@ -100,6 +100,8 @@ h1{margin:0;font-family:var(--font-body);font-weight:700;font-size:clamp(1.3rem,
 .dl-title{font-size:.88rem;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dl-date{font-size:.78rem;color:var(--ink-soft);font-variant-numeric:tabular-nums}
 .dl-item:hover .dl-title{color:var(--main-d)}
+.dl-all{font-style:normal;display:inline-block;margin-right:5px;padding:0 6px;border-radius:99px;font-size:.66rem;font-weight:700;vertical-align:1px;
+  background:var(--paper);color:var(--ink-soft);box-shadow:inset 0 0 0 1px var(--memo-d)}
 
 /* ---- ボード（クリップボード＋方眼紙）---- */
 .card{position:relative;background:var(--board);border-radius:14px;padding:26px 8px 8px;margin-top:10px}
@@ -544,6 +546,7 @@ h1{font-size:1rem;letter-spacing:.02em;white-space:nowrap}
           <label class="fld"><span>締切時刻</span><input type="time" id="f-dtime" value="23:59"></label>
         </div>
         <label class="fld"><span>告知ポストか販売ページの URL</span><input type="url" id="f-durl" placeholder="https://x.com/…/status/…" autocomplete="off"></label>
+        <label class="fld"><span>対象</span><select id="f-dscope"><option value="own">この人だけ</option><option value="all">MECHATU-A 全員（8人のページとまとめページに表示）</option></select></label>
         <p class="help">カレンダーの上の「締切が近いもの」と、該当日に「締切」の印で表示されます。</p>
       </div>
       <p class="err" id="f-err" role="alert"></p>
@@ -609,10 +612,19 @@ function renderNav(nav){
   });
 }
 
+const SHARED_BASE="../mechatua-log/common/";   // 8人共通のファイルの場所
+
 // ---- *.json を読み込む ----
 async function getData(){
   const get=async p=>{try{const r=await fetch(p,{cache:"no-cache"});return r.ok?await r.json():[]}catch(e){return[]}};
-  const [streams,posts,deadlines,cfg]=await Promise.all([get("streams.json"),get("posts.json"),get("deadlines.json"),get("config.json")]);
+  const [streams,posts,own_dl,cfg]=await Promise.all([get("streams.json"),get("posts.json"),get("deadlines.json"),get("config.json")]);
+  // MECHATU-A 全員に関係する締切は、まとめページ側の common/deadlines.json に1つだけ置く（config.json の "shared_deadlines": null で読まない）
+  const sp=cfg&&cfg.shared_deadlines!==undefined?cfg.shared_deadlines:SHARED_BASE+"deadlines.json";
+  const shared=sp?(await get(sp)).map(x=>Object.assign({},x,{shared:true})):[];
+  // 同じ内容・同じ日時のものが両方にあれば1つにまとめる（全員の方を残す）
+  const key=x=>(x.title||"")+"|"+x.deadline;
+  const sk=new Set(shared.map(key));
+  const deadlines=shared.concat((own_dl||[]).filter(x=>!sk.has(key(x))));
   applyConfig(cfg);
   return {streams,posts,deadlines};
 }
@@ -630,7 +642,7 @@ function normalize(d){
   });
   posts=(d.posts||[]).filter(x=>x.time).map((x,i)=>({id:"p"+i,kind:"post",ann:x.kind==="announce",time:T(x.time),
     text:x.text||(x.kind==="announce"?"配信告知":"ポスト"),url:x.url||"https://x.com/"}));
-  deadlines=(d.deadlines||[]).filter(x=>x.deadline).map((x,i)=>({id:"d"+i,kind:"deadline",title:x.title||"締切",time:T(x.deadline),url:x.url||"https://x.com/"}));
+  deadlines=(d.deadlines||[]).filter(x=>x.deadline).map((x,i)=>({id:"d"+i,kind:"deadline",title:x.title||"締切",shared:!!x.shared,time:T(x.deadline),url:x.url||"https://x.com/"}));
   events=streams.concat(posts,deadlines);
 }
 
@@ -774,7 +786,7 @@ function renderDeadlines(){
   const now=Date.now(),list=deadlines.filter(x=>x.time>=now).sort((a,b)=>a.time-b.time).slice(0,3),el=$("deadlines");
   el.hidden=!list.length;
   el.innerHTML=`<span class="dl-h">締切が近いもの</span>`+list.map(x=>{const days=Math.ceil((sod(x.time)-sod(now))/DAYMS);
-    return`<button class="dl-item" data-id="${x.id}"><span class="dl-left">${days<=0?"今日":"あと"+days+"日"}</span><span class="dl-title">${esc(x.title)}</span><span class="dl-date">${md(x.time)} ${hm(x.time)}</span></button>`}).join("");
+    return`<button class="dl-item" data-id="${x.id}"><span class="dl-left">${days<=0?"今日":"あと"+days+"日"}</span><span class="dl-title">${x.shared?'<i class="dl-all">全員</i>':""}${esc(x.title)}</span><span class="dl-date">${md(x.time)} ${hm(x.time)}</span></button>`}).join("");
 }
 function render(){
   renderDeadlines();
@@ -822,7 +834,7 @@ function openSheet(ev){
     const days=Math.ceil((sod(ev.time)-sod(Date.now()))/DAYMS);
     st.hidden=false;st.textContent=ev.time<Date.now()?"終了":days<=0?"今日まで":`あと${days}日`;
     $("sh-title").textContent=ev.title;
-    dl.innerHTML=`<dt>締切</dt><dd>${md(ev.time)} ${hm(ev.time)}</dd>`;
+    dl.innerHTML=`<dt>締切</dt><dd>${md(ev.time)} ${hm(ev.time)}</dd>`+(ev.shared?`<dt>対象</dt><dd>MECHATU-A 全員</dd>`:"");
     link.href=ev.url;link.textContent="告知・販売ページを開く ↗";
   }else{
     tag.className="tag post-tag";tag.removeAttribute("style");tag.textContent=ev.ann?"配信告知":"ポスト";
@@ -896,6 +908,7 @@ let rz;addEventListener("resize",()=>{closePicker();clearTimeout(rz);rz=setTimeo
 // ---- 追加フォーム（GitHub の Issue 経由で登録）----
 // 登録先リポジトリは GitHub Pages の URL（ユーザー名.github.io/リポジトリ名/）から自動で決める
 const REPO=(()=>{const h=location.hostname;if(!h.endsWith(".github.io"))return"";const u=h.split(".")[0];const seg=location.pathname.split("/").filter(Boolean)[0];return seg?`${u}/${seg}`:`${u}/${h}`})();
+const SHARED_REPO=()=>REPO?REPO.split("/")[0]+"/mechatua-log":"";   // 全員分の締切を登録するリポジトリ（まとめページ）
 const SHOW_ADD_ALWAYS=false; // 「追加」ボタンは URL の末尾に #edit を付けて開いた端末にだけ表示
 (function(){
   const $=id=>document.getElementById(id);
@@ -922,7 +935,7 @@ const SHOW_ADD_ALWAYS=false; // 「追加」ボタンは URL の末尾に #edit 
     const t=new Date(xTime(id));$("f-xtime").textContent=`投稿時刻：${t.getFullYear()}/${t.getMonth()+1}/${t.getDate()} ${t.getHours()}:${pad(t.getMinutes())}`});
   $("add-form").addEventListener("submit",e=>{
     e.preventDefault();const err=$("f-err");err.textContent="";
-    const t=type();let title,lines;
+    const t=type();let title,lines,target="";
     if(t==="collab"){
       const u=$("f-yt").value.trim();if(!ytId(u)){err.textContent="YouTube の動画・配信の URL を入れてください（watch?v= や /live/ を含むもの）。";return}
       title=`[追加] 他枠の配信 ${ytId(u)}`;lines=[`type: collab`,`url: ${u}`];
@@ -937,6 +950,7 @@ const SHOW_ADD_ALWAYS=false; // 「追加」ボタンは URL の末尾に #edit 
       const ti=$("f-dtitle").value.trim(),d=$("f-ddate").value,tm=$("f-dtime").value||"23:59",u=$("f-durl").value.trim();
       if(!ti||!d){err.textContent="内容と締切日を入れてください。";return}
       title=`[追加] 締切 ${d}`;lines=[`type: deadline`,`deadline: ${d}T${tm}:00+09:00`,`title: ${ti}`];
+      if($("f-dscope").value==="all")target=SHARED_REPO();   // 全員分はまとめページのリポジトリに登録
       if(u)lines.push(`url: ${u}`);
     }else{
       const u=$("f-x").value.trim(),id=xId(u);if(!id){err.textContent="X のポストの URL を入れてください（/status/ を含むもの）。";return}
@@ -945,7 +959,7 @@ const SHOW_ADD_ALWAYS=false; // 「追加」ボタンは URL の末尾に #edit 
     const body=lines.join("\n")+"\n\n（このまま Create を押してください。内容を書き換えないでください）";
     if(!REPO){const done=$("f-done");done.hidden=false;
       done.textContent=`サンプルのため送信先が未設定です。GitHub 版では、ここで GitHub の登録画面が開きます。送信される内容：\n${lines.join(" / ")}`;return}
-    const url=`https://github.com/${REPO}/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
+    const url=`https://github.com/${target||REPO}/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
     const w=window.open(url,"_blank","noopener");
     const done=$("f-done");done.hidden=false;
     done.innerHTML=w===null?`GitHub の画面を開けませんでした。<a href="${url}" target="_blank" rel="noopener">こちら</a>から開いてください。`:"GitHub の画面で Create を押すと登録されます。";
