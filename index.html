@@ -369,13 +369,15 @@ function build(){
       const own=x.own!==false;
       // 本人の枠でないもの：3つ以上のページに同じ動画がある、またはメンバー2人以上の名前がタイトルにある → 「公式・その他」の行
       const shared=!own&&(count[x.id]>=3||namesIn(x.title).length>=2);
-      entries.push({id:x.id,m:own||!shared?m:null,repoM:m,own,shared,s,e,st,title:x.title||"",url:x.url,thumb:x.thumb,game:x.game,channel:x.channel,
+      entries.push({id:x.id,unit:x.unit||null,kind:x.kind||"stream",m:own||!shared?m:null,repoM:m,own,shared,s,e,st,title:x.title||"",url:x.url,thumb:x.thumb,game:x.game,channel:x.channel,
         co:(x.collabs||[]).map(c=>({id:vid(c.url),channel:c.channel,title:c.title,url:c.url,manual:!!c.manual}))});
     }
   }
   // 公式の動画は1件にまとめる
+  // 同じ動画がどのメンバーのページに入っているか（ユニットのチャンネルの動画は、入っているメンバー＝参加者として使う）
+  const repos={};entries.forEach(x=>{(repos[x.id]=repos[x.id]||new Set()).add(x.repoM)});
   const seenShared=new Set();
-  entries=entries.filter(x=>{if(!x.shared)return true;if(seenShared.has(x.id))return false;seenShared.add(x.id);return true});
+  entries=entries.filter(x=>{if(!x.shared)return true;if(seenShared.has(x.id))return false;seenShared.add(x.id);x.repos=repos[x.id];return true});
   buildEvents();
 }
 // ゲーム名の書き方の違いをそろえる（空白・大文字小文字・よくある別表記）
@@ -405,7 +407,7 @@ function nameRe(m){
 }
 function mentions(a,b){
   const ma=a.m||a.repoM,mb=b.m||b.repoM;   // 末尾の【〜/にじさんじ】に参加者が並ぶこともあるのでタイトル全体を見る
-  return !!(ma&&mb&&ma!==mb&&(nameRe(mb).test(a.title)||nameRe(ma).test(b.title)));
+  return !!(ma&&mb&&ma!==mb&&(nameRe(mb).test(a.title)||nameRe(ma).test(b.title)||unitHas(a.title,mb)||unitHas(b.title,ma)));
 }
 // 時間の重なりだけで見つけた組み合わせ用（厳しめ）
 function related(a,b){
@@ -423,9 +425,19 @@ function relatedLink(a,b){
 // 同じゲームか。片方がもう片方を含む場合も同じとみなす（マリオカート8 と マリオカート8DX など）
 function sameGame(a,b){const ka=gameKey(a.game),kb=gameKey(b.game);if(!ka||!kb||ka==="その他"||ka==="雑談")return false;
   return ka===kb||(Math.min(ka.length,kb.length)>=4&&(ka.startsWith(kb)||kb.startsWith(ka)))}
+// メンバー内ユニット：タイトルに個人名ではなくユニット名だけが書かれることがあるので、ユニット名からも参加者を拾う
+// （Oriens・Dytica・MECHATU-A のような大きな括りは、全員が出ているとは限らないので含めない）
+const UNITS={
+  "リトテツ":["saiki-log","usami-log"],"珍走団":["saiki-log","akagi-log","usami-log"],"マナテツ調査隊":["saiki-log","hibachi-log"],
+  "サイゲツ":["saiki-log","murakumo-log"],"バイト組":["akagi-log","usami-log","hoshirube-log","murakumo-log"],"きゅんbro":["akagi-log","murakumo-log"],
+  "ぎゃうるふ":["akagi-log","koyanagi-log"],"べしゃり隊":["usami-log","hibachi-log"],"にじヴィラン":["hibachi-log","hoshirube-log","koyanagi-log"],
+  "ぱちすたっ★":["hibachi-log","hoshirube-log"],"ぱぶぅん":["hibachi-log","hoshirube-log","inami-log"],"カニハチミツ丼":["hibachi-log","koyanagi-log","inami-log"],
+  "ざぶぅん":["hibachi-log","inami-log"],"こやなみ":["koyanagi-log","inami-log"]};
+const unitsIn=t=>{t=String(t||"").toLowerCase();return Object.keys(UNITS).filter(u=>t.includes(u.toLowerCase()))};
+const unitHas=(t,m)=>unitsIn(t).some(u=>UNITS[u].includes(m.repo));
 function namesIn(title){
-  const t=String(title||"");
-  return M.filter(m=>t.includes(m.name));
+  const t=String(title||""),us=unitsIn(t);
+  return M.filter(m=>t.includes(m.name)||us.some(u=>UNITS[u].includes(m.repo)));
 }
 // 同じ動画、または「コラボ相手の枠」としてつながっている配信を1つのコラボにまとめる
 function buildEvents(){
@@ -455,6 +467,7 @@ function buildEvents(){
     for(const x of g){
       if(x.own)mem.set(x.repoM,x);
       else if(!x.shared&&!mem.has(x.repoM))mem.set(x.repoM,null); // 他の人の枠に出た
+      else if(x.shared&&x.unit&&x.kind==="stream"&&x.repos)x.repos.forEach(m=>{if(!mem.has(m))mem.set(m,null)}); // ユニット（Oriens など）のチャンネルの配信
     }
     // タイトルにフルネームがあるメンバーも参加者に入れる（本人の枠がない参加）
     for(const x of g)for(const m of namesIn(x.title))if(!mem.has(m))mem.set(m,null);
@@ -463,7 +476,7 @@ function buildEvents(){
     const others=new Map();
     for(const x of g){
       for(const c of x.co){if(!(c.id&&g.some(y=>y.id===c.id)))others.set(c.channel,c)}
-      if(!x.own&&!M.some(m=>x.channel&&x.channel.includes(m.name)))others.set(x.channel,x);
+      if(!x.own&&!x.unit&&!M.some(m=>x.channel&&x.channel.includes(m.name)))others.set(x.channel,x);   // ユニットのチャンネルは「ほか」に出さない
     }
     for(const k of [...others.keys()])if(!k||M.some(m=>k.includes(m.name)))others.delete(k);
     const s=Math.min(...g.map(x=>x.s)),e=Math.max(...g.map(x=>x.e));
