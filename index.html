@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="mechatu-log">
+<meta name="robots" content="noindex">
+<title>mechatu-log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600&family=Zen+Maru+Gothic:wght@400;500;700&display=swap">
+<style>
+/* 8人分のページ（同じ m-iv12.github.io 内）の streams.json / config.json を読み込んで並べる。
+   メンバーの色は各ページの config.json の theme から取る */
+:root{
+  --desk:#eef0f5; --board:#dde2ea; --paper:#ffffff; --grid:#eef1f6; --grid-2:#dfe4ec;
+  --ink:#3d4458; --ink-soft:#646b80; --muted:#959bab; --ui:#6b7488; --ui-d:#525a6d; --ui-l:#e6e9f0;
+  --sun:#c94a64; --sat:#4f6fb0; --now:#d4566c;
+  --font-label:"Josefin Sans","Zen Maru Gothic",sans-serif;
+  --font-body:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Hiragino Sans",sans-serif;
+  --name-w:64px; --row-h:30px;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--desk);color:var(--ink);font-family:var(--font-body);-webkit-text-size-adjust:100%}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:inherit}
+.wrap{max-width:1400px;margin:0 auto;padding:calc(14px + env(safe-area-inset-top,0px)) 16px calc(24px + env(safe-area-inset-bottom,0px))}
+
+/* ---- 見出し・切り替え ---- */
+header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+h1{margin:0;font-size:1.25rem;font-weight:700;letter-spacing:.04em;line-height:1.3}
+h1 small{display:block;font-family:var(--font-label);font-size:.62rem;font-weight:600;letter-spacing:.2em;color:var(--muted)}
+.seg{display:flex;margin-left:auto;background:var(--paper);border-radius:99px;padding:3px;box-shadow:0 1px 0 var(--grid-2)}
+.seg button{border:0;background:transparent;border-radius:99px;padding:7px 16px;font-weight:700;font-size:.88rem;color:var(--ink-soft)}
+.seg button[aria-selected="true"]{background:var(--ui);color:#fff}
+.links{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.links a{display:inline-flex;align-items:center;gap:5px;text-decoration:none;font-size:.78rem;background:var(--paper);border-radius:99px;padding:3px 10px 3px 4px;box-shadow:0 1px 0 var(--grid-2)}
+.links a:hover{box-shadow:0 0 0 1.5px var(--c)}
+.dot{width:16px;height:16px;border-radius:50%;background:var(--c);flex:none}
+
+.card{position:relative;background:var(--board);border-radius:14px;padding:12px;margin-top:14px}
+.paper{background:var(--paper);border-radius:8px}
+
+/* ---- 週タイムライン ---- */
+.nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.round{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--ui);background:var(--paper);display:grid;place-items:center;padding:0;color:var(--ui)}
+.round svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.ghost{border:1.5px solid var(--ui);background:var(--paper);color:var(--ui-d);border-radius:99px;padding:5px 14px;font-weight:700;font-size:.85rem}
+.wk-label{font-family:var(--font-label);font-weight:600;font-size:1.1rem;letter-spacing:.03em;min-width:9.5em}
+.now-box{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-left:auto;font-size:.8rem;color:var(--ink-soft)}
+.now-box b{font-family:var(--font-label);font-size:.66rem;letter-spacing:.16em;color:var(--now)}
+.chip{display:inline-flex;align-items:center;gap:4px;border-radius:99px;padding:2px 9px;font-size:.76rem;font-weight:700;background:var(--c);color:var(--ci);text-decoration:none;border:0;white-space:nowrap}
+.chip.live::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;animation:blink 1.4s infinite}
+@keyframes blink{50%{opacity:.25}}
+
+.tl{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:8px;background:var(--paper)}
+.tl-in{min-width:820px}
+.day{border-bottom:1px solid var(--grid-2)}
+.day:last-child{border-bottom:0}
+.day.today{background:linear-gradient(90deg,#f7f8fb,#fff)}
+.d-head{display:flex;align-items:flex-end;height:28px;border-bottom:1px solid var(--grid)}
+.d-label{position:sticky;left:0;z-index:3;width:var(--name-w);flex:none;background:inherit;padding:0 0 3px 8px;font-weight:700;font-size:.92rem;line-height:1;background:var(--paper)}
+.day.today .d-label{color:var(--now)}
+.d-label small{font-size:.66rem;font-weight:500;margin-left:2px}
+.d-label.sat small{color:var(--sat)} .d-label.sun small{color:var(--sun)}
+.scale{position:relative;flex:1;height:100%}
+.scale span{position:absolute;bottom:3px;transform:translateX(-50%);font-family:var(--font-label);font-size:.66rem;color:var(--muted)}
+.row{display:flex;height:var(--row-h)}
+.row+.row{border-top:1px dashed var(--grid)}
+.r-name{position:sticky;left:0;z-index:3;width:var(--name-w);flex:none;display:flex;align-items:center;padding-left:6px;background:var(--paper)}
+.r-name .chip{padding:1px 7px;font-size:.7rem}
+.r-name .off{font-size:.7rem;color:var(--muted);font-weight:700;padding-left:4px}
+.track{position:relative;flex:1;background-image:linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:calc(100% / 8) 100%}
+.nowline{position:absolute;top:0;bottom:0;width:2px;background:var(--now);z-index:2;pointer-events:none}
+.nowline::before{content:"";position:absolute;top:-3px;left:-3px;width:8px;height:8px;border-radius:50%;background:var(--now)}
+.bar{position:absolute;top:3px;bottom:3px;border:0;border-radius:4px;background:var(--c);color:var(--ci);padding:0 5px;font-size:.68rem;font-weight:700;
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:left;line-height:calc(var(--row-h) - 6px);min-width:3px;box-shadow:0 1px 0 rgb(0 0 0 / .08)}
+.bar:hover{filter:brightness(1.06);z-index:1}
+.bar.cut-l{border-top-left-radius:0;border-bottom-left-radius:0}
+.bar.cut-r{border-top-right-radius:0;border-bottom-right-radius:0}
+.bar.up{background:var(--paper);color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--c);background-image:repeating-linear-gradient(135deg,transparent 0 5px,rgb(0 0 0 / .04) 5px 10px)}
+.bar.other{background:var(--paper);color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--c);border-radius:99px}
+.bar.co::after{content:"";position:absolute;right:0;top:0;width:9px;height:9px;background:rgb(255 255 255 / .85);clip-path:polygon(0 0,100% 0,100% 100%)}
+.bar.sel{outline:2px solid var(--ink);outline-offset:1px;z-index:2}
+.bar .t{font-family:var(--font-label);font-weight:600;margin-right:4px;opacity:.9}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px;font-size:.72rem;color:var(--ink-soft)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.lg{width:22px;height:10px;border-radius:3px;background:var(--ui)}
+.lg.up{background:var(--paper);box-shadow:inset 0 0 0 1.5px var(--ui)}
+.lg.other{background:var(--paper);box-shadow:inset 0 0 0 1.5px var(--ui);border-radius:99px}
+.lg.co{position:relative}.lg.co::after{content:"";position:absolute;right:0;top:0;width:7px;height:7px;background:#fff;clip-path:polygon(0 0,100% 0,100% 100%)}
+
+/* ---- コラボ ---- */
+.pick-h{margin:0 0 6px;font-size:.78rem;color:var(--ink-soft)}
+.picks{display:flex;flex-wrap:wrap;gap:6px}
+.pick{border:1.5px solid var(--c);background:var(--paper);color:var(--ink);border-radius:99px;padding:5px 12px 5px 6px;font-weight:700;font-size:.85rem;display:inline-flex;align-items:center;gap:6px}
+.pick[aria-pressed="true"]{background:var(--c);color:var(--ci)}
+.pick[aria-pressed="true"] .dot{background:var(--ci);opacity:.6}
+.years{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+.yr{border:1px solid var(--grid-2);background:var(--paper);border-radius:99px;padding:3px 11px;font-size:.78rem;font-family:var(--font-label);font-weight:600}
+.yr[aria-pressed="true"]{background:var(--ui);border-color:var(--ui);color:#fff}
+.clear{border:0;background:transparent;text-decoration:underline;font-size:.78rem;color:var(--ink-soft);padding:3px 4px}
+.co-grid{display:grid;gap:12px;margin-top:12px}
+@media (min-width:900px){.co-grid{grid-template-columns:300px 1fr;align-items:start}.side{position:sticky;top:10px}}
+.side{padding:12px}
+.side h2,.list-h{margin:0 0 8px;font-size:.82rem;font-weight:700;color:var(--ink-soft);display:flex;align-items:baseline;gap:8px}
+.side h2 small,.list-h small{font-weight:500;color:var(--muted)}
+.cnt{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:6px 8px}
+.cnt button{border:0;background:transparent;padding:0;display:contents}
+.cnt .nm{font-size:.8rem;font-weight:700;white-space:nowrap}
+.cnt .bg{height:14px;border-radius:3px;background:var(--grid)}
+.cnt .bg i{display:block;height:100%;border-radius:3px;background:var(--c)}
+.cnt .n{font-family:var(--font-label);font-weight:600;font-size:.82rem;text-align:right;min-width:2.5em}
+.cnt button:hover .nm{text-decoration:underline}
+.list{padding:12px}
+.mon{margin:14px 0 6px;font-family:var(--font-label);font-weight:600;font-size:.8rem;letter-spacing:.08em;color:var(--muted);border-bottom:1px dashed var(--grid-2);padding-bottom:3px}
+.mon:first-of-type{margin-top:0}
+.ev{display:grid;grid-template-columns:62px 1fr;gap:4px 10px;padding:8px 0;border-bottom:1px solid var(--grid)}
+.ev:last-child{border-bottom:0}
+.ev-d{font-family:var(--font-label);font-weight:600;font-size:.95rem;line-height:1.2}
+.ev-d small{display:block;font-size:.7rem;color:var(--muted);font-weight:400}
+.ev-m{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.ev-m .chip{font-size:.7rem;padding:1px 8px}
+.ev-m .nf{background:var(--paper);color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--c)}
+.ev-t{grid-column:2;font-size:.86rem;font-weight:500;line-height:1.45;word-break:break-word}
+.ev-o{grid-column:2;font-size:.72rem;color:var(--muted)}
+.ths{grid-column:2;display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.ths a{flex:none;width:112px;text-decoration:none;font-size:.66rem;color:var(--ink-soft)}
+.ths img,.ths .ph{display:block;width:112px;aspect-ratio:16/9;object-fit:cover;border-radius:4px;border-bottom:3px solid var(--c);background:var(--grid)}
+.ths span{display:block;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.more{display:block;margin:12px auto 0;border:1.5px solid var(--ui);background:var(--paper);color:var(--ui-d);border-radius:99px;padding:7px 22px;font-weight:700;font-size:.85rem}
+.empty{color:var(--muted);font-size:.85rem;padding:20px 0;text-align:center}
+
+/* ---- 詳細 ---- */
+.backdrop{position:fixed;inset:0;background:rgb(40 46 60 / .35);z-index:20}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;display:flex;justify-content:center;pointer-events:none}
+.sheet-in{pointer-events:auto;width:min(560px,100%);max-height:85vh;overflow-y:auto;background:var(--paper);border-radius:16px 16px 0 0;
+  padding:16px 18px calc(18px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 20px rgb(0 0 0 / .12);border-top:5px solid var(--c)}
+@media (min-width:700px){.sheet{top:0;align-items:center}.sheet-in{border-radius:14px}}
+.sh-top{display:flex;align-items:center;gap:8px}
+.sh-top .x{margin-left:auto;border:0;background:var(--grid);width:30px;height:30px;border-radius:50%;font-size:1rem;line-height:1}
+.sh-title{margin:10px 0 4px;font-size:1rem;line-height:1.5;word-break:break-word}
+.sh-meta{font-size:.82rem;color:var(--ink-soft)}
+.sh-thumb{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:6px;margin-top:10px;background:var(--grid)}
+.open{display:flex;justify-content:center;margin-top:12px;background:var(--c);color:var(--ci);text-decoration:none;font-weight:700;border-radius:99px;padding:10px}
+.with{margin-top:14px;border-top:1px dashed var(--grid-2);padding-top:10px}
+.with h3{margin:0 0 6px;font-size:.8rem;color:var(--ink-soft)}
+.with a,.with p{display:flex;align-items:center;gap:8px;font-size:.82rem;margin:0 0 6px;text-decoration:none;line-height:1.4}
+.with a span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.with a:hover span{text-decoration:underline}
+.err{color:var(--sun);font-size:.85rem}
+[hidden]{display:none!important}
+
+@media (max-width:640px){
+  :root{--name-w:62px;--row-h:28px}
+  h1{font-size:1.05rem}
+  .seg{margin-left:0;width:100%}.seg button{flex:1}
+  .card{padding:8px;border-radius:10px}
+  .now-box{margin-left:0;width:100%}
+  .ev{grid-template-columns:50px 1fr}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><small>MECHATU-A</small>配信スケジュール</h1>
+    <div class="seg" role="tablist">
+      <button role="tab" id="t-week" aria-selected="true">週タイムライン</button>
+      <button role="tab" id="t-co" aria-selected="false">コラボ</button>
+    </div>
+  </header>
+  <nav class="links" id="links" aria-label="各メンバーのページ"></nav>
+  <p class="err" id="err" hidden></p>
+
+  <section class="card" id="p-week">
+    <div class="nav">
+      <button class="round" id="prev" aria-label="前の週"><svg viewBox="0 0 16 16"><path d="M10 3 5 8l5 5"/></svg></button>
+      <span class="wk-label" id="wk-label"></span>
+      <button class="round" id="next" aria-label="次の週"><svg viewBox="0 0 16 16"><path d="M6 3l5 5-5 5"/></svg></button>
+      <button class="ghost" id="today">今週</button>
+      <div class="now-box" id="now-box"></div>
+    </div>
+    <div class="tl"><div class="tl-in" id="tl"></div></div>
+    <div class="legend">
+      <span><i class="lg"></i>配信</span><span><i class="lg up"></i>予定</span>
+      <span><i class="lg other"></i>他の人の枠</span><span><i class="lg co"></i>メンバーとのコラボ</span>
+    </div>
+  </section>
+
+  <section id="p-co" hidden>
+    <div class="card">
+      <p class="pick-h">メンバーを選ぶと、その人が参加したコラボだけを表示します（複数選ぶと、全員が参加したもの）</p>
+      <div class="picks" id="picks"></div>
+      <div class="years" id="years"></div>
+    </div>
+    <div class="co-grid">
+      <div class="card side"><div class="paper side" id="counts"></div></div>
+      <div class="card"><div class="paper list" id="list"></div></div>
+    </div>
+  </section>
+</div>
+
+<div class="backdrop" id="bd" hidden></div>
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true"><div class="sheet-in" id="sheet-in"></div></div>
+
+<script>
+(function(){
+// ここに並べたリポジトリ（同じ m-iv12.github.io 内）のデータを読み込む。並び順＝表示順
+const MEMBERS=[
+  {repo:"saiki-log",unit:"Oriens"},{repo:"akagi-log",unit:"Oriens"},{repo:"usami-log",unit:"Oriens"},{repo:"hibachi-log",unit:"Oriens"},
+  {repo:"hoshirube-log",unit:"Dytica"},{repo:"murakumo-log",unit:"Dytica"},{repo:"koyanagi-log",unit:"Dytica"},{repo:"inami-log",unit:"Dytica"}
+];
+const BASE="../";                       // mechatu-log から見た各リポジトリの場所
+const DEFAULT={main:"#7389b5",ev:"#6f85b2","ev-ink":"#ffffff"}; // theme がないページ（小柳ロウ版）の色
+const H=36e5, DAY=864e5, WD=["日","月","火","水","木","金","土"];
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const sod=t=>{const d=new Date(t);d.setHours(0,0,0,0);return d.getTime()};
+const addDays=(t,n)=>{const d=new Date(t);d.setDate(d.getDate()+n);return d.getTime()};
+const sow=t=>{const s=sod(t);return addDays(s,-((new Date(s).getDay()+6)%7))};
+const hm=t=>{const d=new Date(t);return d.getHours()+":"+String(d.getMinutes()).padStart(2,"0")};
+const md=t=>{const d=new Date(t);return `${d.getMonth()+1}/${d.getDate()}`};
+const hrs=ms=>{const h=Math.round(ms/H*2)/2;return h%1?h.toFixed(1):String(h)};
+const vid=u=>{const m=String(u||"").match(/(?:v=|youtu\.be\/|\/live\/|\/shorts\/)([A-Za-z0-9_-]{11})/);return m?m[1]:null};
+const cleanTitle=t=>String(t||"").replace(/^\s*【[^】]*】\s*/,"").replace(/\s*【[^】]*にじさんじ[^】]*】\s*$/,"").replace(/\s*[\/／]\s*[^\/／]*にじさんじ[^\/／]*$/,"").trim()||String(t||"");
+
+let M=[], entries=[], events=[], cursor=Date.now(), selected=new Set(), year="all", shown=40;
+
+// ---------- 読み込み ----------
+async function getJSON(p){try{const r=await fetch(p,{cache:"no-cache"});return r.ok?await r.json():null}catch(e){return null}}
+async function load(){
+  const res=await Promise.all(MEMBERS.map(async m=>{
+    const [cfg,st]=await Promise.all([getJSON(BASE+m.repo+"/config.json"),getJSON(BASE+m.repo+"/streams.json")]);
+    return {m,cfg,st};
+  }));
+  const missing=res.filter(r=>!r.cfg||!r.st).map(r=>r.m.repo);
+  if(missing.length){$("err").hidden=false;$("err").textContent="読み込めなかったページ："+missing.join("、")}
+  M=res.filter(r=>r.cfg&&r.st).map((r,i)=>{
+    const c=r.cfg,t=Object.assign({},DEFAULT,c.theme||{}),kw=c.collab_keywords||[];
+    return {i,repo:r.m.repo,unit:r.m.unit,name:c.name||r.m.repo,short:kw[kw.length-1]||c.name,
+      c:t.ev,ci:t["ev-ink"]||"#fff",main:t.main,streams:r.st};
+  });
+  build();
+}
+
+// ---------- データの統合 ----------
+function build(){
+  const now=Date.now();
+  entries=[];
+  const count={};
+  for(const m of M)for(const x of m.streams)count[x.id]=(count[x.id]||0)+1;
+  for(const m of M){
+    for(const x of m.streams){
+      if(!x.start)continue;
+      const s=Date.parse(x.start),st=x.status||"done";
+      let e=x.end?Date.parse(x.end):null;
+      if(!e)e=st==="live"?Math.max(now,s+30*6e4):s+2*H;
+      const own=x.own!==false;
+      // 本人の枠でないもの：3つ以上のページに同じ動画がある、またはメンバー2人以上の名前がタイトルにある → 「公式・その他」の行
+      const shared=!own&&(count[x.id]>=3||namesIn(x.title).length>=2);
+      entries.push({id:x.id,m:own||!shared?m:null,repoM:m,own,shared,s,e,st,title:x.title||"",url:x.url,thumb:x.thumb,game:x.game,channel:x.channel,
+        co:(x.collabs||[]).map(c=>({id:vid(c.url),channel:c.channel,title:c.title,url:c.url}))});
+    }
+  }
+  // 公式の動画は1件にまとめる
+  const seenShared=new Set();
+  entries=entries.filter(x=>{if(!x.shared)return true;if(seenShared.has(x.id))return false;seenShared.add(x.id);return true});
+  buildEvents();
+}
+function namesIn(title){
+  const t=String(title||"");
+  return M.filter(m=>t.includes(m.name));
+}
+// 同じ動画、または「コラボ相手の枠」としてつながっている配信を1つのコラボにまとめる
+function buildEvents(){
+  const parent=entries.map((_,i)=>i);
+  const find=i=>parent[i]===i?i:(parent[i]=find(parent[i]));
+  const union=(a,b)=>{a=find(a);b=find(b);if(a!==b)parent[b]=a};
+  const byId={};
+  entries.forEach((x,i)=>{(byId[x.id]=byId[x.id]||[]).push(i)});
+  entries.forEach((x,i)=>{
+    for(const j of byId[x.id])union(i,j);
+    for(const c of x.co)if(c.id&&byId[c.id])for(const j of byId[c.id])union(i,j);
+  });
+  const groups={};
+  entries.forEach((x,i)=>{(groups[find(i)]=groups[find(i)]||[]).push(x)});
+  events=[];
+  for(const g of Object.values(groups)){
+    const mem=new Map();      // メンバー → その人の枠（なければ null）
+    for(const x of g){
+      if(x.own)mem.set(x.repoM,x);
+      else if(!x.shared&&!mem.has(x.repoM))mem.set(x.repoM,null); // 他の人の枠に出た
+    }
+    // タイトルにフルネームがあるメンバーも参加者に入れる（本人の枠がない参加）
+    for(const x of g)for(const m of namesIn(x.title))if(!mem.has(m))mem.set(m,null);
+    if(mem.size<2)continue;
+    const memberIds=new Set([...mem.keys()].map(m=>m.repo));
+    const others=new Map();
+    for(const x of g){
+      for(const c of x.co){if(!(c.id&&g.some(y=>y.id===c.id)))others.set(c.channel,c)}
+      if(!x.own&&!M.some(m=>x.channel&&x.channel.includes(m.name)))others.set(x.channel,x);
+    }
+    for(const k of [...others.keys()])if(!k||M.some(m=>k.includes(m.name)))others.delete(k);
+    const s=Math.min(...g.map(x=>x.s)),e=Math.max(...g.map(x=>x.e));
+    const ev={members:[...mem.keys()].sort((a,b)=>a.i-b.i),own:mem,entries:g,s,e,others:[...others.keys()],memberIds};
+    events.push(ev);
+    for(const x of g)x.ev=ev;
+  }
+  events.sort((a,b)=>b.s-a.s);
+  render();
+}
+
+// ---------- 週タイムライン ----------
+function renderWeek(){
+  const ws=sow(cursor),we=addDays(ws,7),now=Date.now(),today=sod(now);
+  $("wk-label").textContent=`${new Date(ws).getFullYear()}年 ${md(ws)} – ${md(addDays(ws,6))}`;
+  // 配信中
+  const live=entries.filter(x=>x.own&&x.s<=now&&x.e>now&&x.st!=="upcoming");
+  const next=entries.filter(x=>x.own&&x.s>now).sort((a,b)=>a.s-b.s).slice(0,3);
+  $("now-box").innerHTML=(live.length?`<b>LIVE</b>`+live.map(x=>`<a class="chip live" style="--c:${x.m.c};--ci:${x.m.ci}" href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.m.short)}</a>`).join(""):"")+
+    (next.length?`<b style="color:var(--muted)">NEXT</b>`+next.map(x=>`<button class="chip" data-k="${entries.indexOf(x)}" style="--c:${x.m.c};--ci:${x.m.ci}">${esc(x.m.short)} ${new Date(x.s).getDate()}日 ${hm(x.s)}</button>`).join(""):"");
+  let h="";
+  for(let d=0;d<7;d++){
+    const d0=addDays(ws,d),d1=addDays(ws,d+1),dw=new Date(d0).getDay();
+    const inDay=entries.filter(x=>x.s<d1&&x.e>d0);
+    h+=`<div class="day${d0===today?" today":""}" ${d0===today?'id="today-row"':""}><div class="d-head"><span class="d-label${dw===6?" sat":dw===0?" sun":""}">${new Date(d0).getDate()}<small>${WD[dw]}</small></span><div class="scale">`;
+    for(let k=3;k<24;k+=3)h+=`<span style="left:${k/24*100}%">${k}</span>`;
+    h+=`</div></div>`;
+    const rows=M.map(m=>({m,items:inDay.filter(x=>x.m===m)}));
+    const sh=inDay.filter(x=>x.shared);
+    for(const r of rows)h+=rowHTML(r.m,r.items,d0,d1,now);
+    if(sh.length)h+=rowHTML(null,sh,d0,d1,now);
+    h+=`</div>`;
+  }
+  $("tl").innerHTML=h;
+  // スマホなど横にはみ出すときは、最初だけ夕方〜夜（配信が多い時間帯）が見える位置までずらす
+  const box=$("tl").parentNode;
+  if(!scrolled&&box.scrollWidth>box.clientWidth){scrolled=true;const nw=$("tl").querySelector(".r-name").offsetWidth;
+    box.scrollLeft=(box.scrollWidth-nw)*(15/24)}
+}
+let scrolled=false;
+function rowHTML(m,items,d0,d1,now){
+  let h=`<div class="row"><div class="r-name">${m?`<span class="chip" style="--c:${m.c};--ci:${m.ci}">${esc(m.short)}</span>`:`<span class="off">公式</span>`}</div><div class="track">`;
+  if(now>=d0&&now<d1)h+=`<i class="nowline" style="left:${(now-d0)/DAY*100}%"></i>`;
+  for(const x of items){
+    const s=Math.max(x.s,d0),e=Math.min(x.e,d1),L=(s-d0)/DAY*100,W=(e-s)/DAY*100;
+    const c=x.m||x.repoM,cls=["bar"];
+    if(x.st==="upcoming")cls.push("up");
+    if(!x.own)cls.push("other");
+    if(x.ev)cls.push("co");
+    if(x.s<d0)cls.push("cut-l");if(x.e>d1)cls.push("cut-r");
+    const lab=W>4?`<span class="t">${hm(x.s)}</span>${esc(x.game||cleanTitle(x.title))}`:"";
+    h+=`<button class="${cls.join(" ")}" data-k="${entries.indexOf(x)}" style="left:${L}%;width:${W}%;--c:${m?m.c:"var(--ui)"};--ci:${m?m.ci:"#fff"}" title="${esc(hm(x.s)+" "+x.title)}">${lab}</button>`;
+  }
+  return h+`</div></div>`;
+}
+
+// ---------- コラボ ----------
+function renderCo(){
+  $("picks").innerHTML=M.map(m=>`<button class="pick" data-m="${m.repo}" aria-pressed="${selected.has(m.repo)}" style="--c:${m.c};--ci:${m.ci}"><i class="dot"></i>${esc(m.name)}</button>`).join("")+
+    (selected.size?`<button class="clear" id="clear">選択を外す</button>`:"");
+  const ys=[...new Set(events.map(e=>new Date(e.s).getFullYear()))].sort((a,b)=>b-a);
+  $("years").innerHTML=["all",...ys].map(y=>`<button class="yr" data-y="${y}" aria-pressed="${String(year)===String(y)}">${y==="all"?"すべて":y}</button>`).join("");
+  const inYear=events.filter(e=>year==="all"||new Date(e.s).getFullYear()===+year);
+  const hit=inYear.filter(e=>[...selected].every(r=>e.memberIds.has(r)));
+  // 左：一緒にコラボした回数
+  let c="";
+  if(selected.size===1){
+    const me=[...selected][0],mm=M.find(m=>m.repo===me);
+    const rows=M.filter(m=>m.repo!==me).map(m=>({m,n:hit.filter(e=>e.memberIds.has(m.repo)).length})).sort((a,b)=>b.n-a.n);
+    const max=Math.max(1,...rows.map(r=>r.n));
+    c=`<h2>${esc(mm.short)}と一緒にコラボした回数<small>押すと絞り込み</small></h2><div class="cnt">`+
+      rows.map(r=>`<button data-add="${r.m.repo}" style="--c:${r.m.c}"><span class="nm">${esc(r.m.name)}</span><span class="bg"><i style="width:${r.n/max*100}%"></i></span><span class="n">${r.n}</span></button>`).join("")+`</div>`;
+  }else if(selected.size===0){
+    const rows=M.map(m=>({m,n:hit.filter(e=>e.memberIds.has(m.repo)).length})).sort((a,b)=>b.n-a.n);
+    const max=Math.max(1,...rows.map(r=>r.n));
+    c=`<h2>メンバーとのコラボ回数<small>押すと選択</small></h2><div class="cnt">`+
+      rows.map(r=>`<button data-add="${r.m.repo}" style="--c:${r.m.c}"><span class="nm">${esc(r.m.name)}</span><span class="bg"><i style="width:${r.n/max*100}%"></i></span><span class="n">${r.n}</span></button>`).join("")+`</div>`;
+  }else{
+    const names=[...selected].map(r=>M.find(m=>m.repo===r).short).join("・");
+    c=`<h2>${esc(names)}が全員参加したコラボ</h2><p style="font-family:var(--font-label);font-size:2rem;font-weight:600;margin:4px 0 0">${hit.length}<small style="font-size:.8rem;margin-left:4px">回</small></p>`;
+  }
+  $("counts").innerHTML=c;
+  // 右：一覧
+  let h=`<p class="list-h">コラボ一覧<small>${hit.length}件・新しい順</small></p>`;
+  if(!hit.length)h+=`<p class="empty">該当するコラボはありません</p>`;
+  let lastMon="";
+  for(const e of hit.slice(0,shown)){
+    const d=new Date(e.s),mon=`${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}`;
+    if(mon!==lastMon){h+=`<p class="mon">${mon}</p>`;lastMon=mon}
+    const rep=e.entries.find(x=>x.own)||e.entries[0];
+    const mem=e.members.map(m=>{const x=e.own.get(m);return `<span class="chip${x?"":" nf"}" style="--c:${m.c};--ci:${m.ci}" title="${x?"本人の枠あり":"本人の枠なし"}">${esc(m.short)}</span>`}).join("");
+    const th=e.members.filter(m=>e.own.get(m)).map(m=>{const x=e.own.get(m);
+      return `<a href="${esc(x.url)}" target="_blank" rel="noopener" style="--c:${m.c}">${x.thumb?`<img src="${esc(x.thumb)}" alt="" loading="lazy">`:`<i class="ph"></i>`}<span>${esc(m.short)}の枠</span></a>`}).join("");
+    const official=e.entries.filter(x=>x.shared).map(x=>`<a href="${esc(x.url)}" target="_blank" rel="noopener" style="--c:var(--ui)">${x.thumb?`<img src="${esc(x.thumb)}" alt="" loading="lazy">`:`<i class="ph"></i>`}<span>${esc(x.channel||"公式")}</span></a>`).join("");
+    h+=`<div class="ev"><div class="ev-d">${d.getMonth()+1}/${d.getDate()}<small>${WD[d.getDay()]} ${hm(e.s)}</small></div>
+      <div class="ev-m">${mem}</div><div class="ev-t">${esc(cleanTitle(rep.title))}</div>
+      ${th||official?`<div class="ths">${th}${official}</div>`:""}
+      ${e.others.length?`<div class="ev-o">ほか：${e.others.map(esc).join("、")}</div>`:""}</div>`;
+  }
+  if(hit.length>shown)h+=`<button class="more" id="more">さらに表示（残り ${hit.length-shown} 件）</button>`;
+  $("list").innerHTML=h;
+}
+
+// ---------- 詳細 ----------
+function openSheet(x){
+  const m=x.m||x.repoM;
+  const c=x.m?x.m.c:"var(--ui)",ci=x.m?x.m.ci:"#fff";
+  let h=`<div class="sh-top">${x.m?`<span class="chip" style="--c:${c};--ci:${ci}">${esc(x.m.name)}</span>`:`<span class="chip" style="--c:var(--ui);--ci:#fff">公式・その他</span>`}
+    ${!x.own&&x.m?`<span class="sh-meta">${esc(x.channel)} の枠</span>`:""}<button class="x" id="sh-x" aria-label="閉じる">×</button></div>
+    <h2 class="sh-title">${esc(x.title)}</h2>
+    <div class="sh-meta">${md(x.s)}（${WD[new Date(x.s).getDay()]}） ${hm(x.s)}${x.st==="upcoming"?" 開始予定":` – ${hm(x.e)}（${hrs(x.e-x.s)}h）`}${x.game?"　"+esc(x.game):""}</div>
+    ${x.thumb?`<img class="sh-thumb" src="${esc(x.thumb)}" alt="">`:""}
+    <a class="open" href="${esc(x.url)}" target="_blank" rel="noopener" style="--c:${c};--ci:${ci}">枠を開く ↗</a>`;
+  if(x.ev){
+    h+=`<div class="with"><h3>一緒に配信したメンバー</h3>`;
+    for(const mm of x.ev.members){if(mm===x.m)continue;const y=x.ev.own.get(mm);
+      h+=y?`<a href="${esc(y.url)}" target="_blank" rel="noopener"><span class="chip" style="--c:${mm.c};--ci:${mm.ci}">${esc(mm.short)}</span><span>${esc(cleanTitle(y.title))}</span></a>`
+          :`<p><span class="chip" style="--c:var(--paper);--ci:var(--ink);box-shadow:inset 0 0 0 1.5px ${mm.c}">${esc(mm.short)}</span><span style="color:var(--muted)">本人の枠なし</span></p>`}
+    if(x.ev.others.length)h+=`<p style="color:var(--muted)">ほか：${x.ev.others.map(esc).join("、")}</p>`;
+    h+=`</div>`;
+  }
+  $("sheet-in").style.setProperty("--c",c);
+  $("sheet-in").innerHTML=h;$("sheet").hidden=false;$("bd").hidden=false;$("sh-x").focus();
+}
+function closeSheet(){$("sheet").hidden=true;$("bd").hidden=true}
+
+// ---------- 画面の切り替え ----------
+let tab="week";
+function render(){
+  $("links").innerHTML=M.map(m=>`<a href="${BASE+m.repo}/" style="--c:${m.c}"><i class="dot"></i>${esc(m.name)}</a>`).join("");
+  $("p-week").hidden=tab!=="week";$("p-co").hidden=tab!=="co";
+  $("t-week").setAttribute("aria-selected",tab==="week");$("t-co").setAttribute("aria-selected",tab==="co");
+  if(tab==="week")renderWeek();else renderCo();
+}
+function setHash(){const p=[];if(tab==="co"){p.push("co");if(selected.size)p.push([...selected].map(r=>r.replace(/-log$/,"")).join("+"))}
+  history.replaceState(null,"",p.length?"#"+p.join("/"):location.pathname)}
+function readHash(){const p=location.hash.slice(1).split("/");if(p[0]==="co"){tab="co";if(p[1])p[1].split("+").forEach(s=>selected.add(s+"-log"))}}
+
+$("t-week").onclick=()=>{tab="week";setHash();render()};
+$("t-co").onclick=()=>{tab="co";setHash();render()};
+$("prev").onclick=()=>{cursor=addDays(cursor,-7);renderWeek()};
+$("next").onclick=()=>{cursor=addDays(cursor,7);renderWeek()};
+$("today").onclick=()=>{cursor=Date.now();renderWeek()};
+document.addEventListener("click",ev=>{
+  const b=ev.target.closest("[data-k]");if(b){openSheet(entries[+b.dataset.k]);return}
+  const p=ev.target.closest("[data-m]");if(p){const r=p.dataset.m;selected.has(r)?selected.delete(r):selected.add(r);shown=40;setHash();renderCo();return}
+  const a=ev.target.closest("[data-add]");if(a){selected.add(a.dataset.add);shown=40;setHash();renderCo();return}
+  const y=ev.target.closest("[data-y]");if(y){year=y.dataset.y;shown=40;renderCo();return}
+  if(ev.target.id==="clear"){selected.clear();shown=40;setHash();renderCo();return}
+  if(ev.target.id==="more"){shown+=40;renderCo();return}
+  if(ev.target.id==="bd"||ev.target.id==="sh-x")closeSheet();
+});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet()});
+readHash();
+load();
+// 5分ごとに「配信中」と現在時刻の線を更新
+setInterval(()=>{if(tab==="week")renderWeek()},5*60e3);
+})();
+</script>
+</body>
+</html>
