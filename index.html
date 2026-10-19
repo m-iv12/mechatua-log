@@ -35,12 +35,17 @@ a{color:inherit}
 
 /* ---- 見出し・切り替え ---- */
 header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
-h1{margin:0;font-size:1.5rem;font-weight:700;letter-spacing:.06em;line-height:1.3}
-/* 見出しの上の「MECHATU-A」は、淡いピンクのマスキングテープ */
-h1 small{display:inline-block;margin:0 0 6px -4px;padding:3px 14px 2px;font-family:var(--font-label);font-size:.72rem;font-weight:600;letter-spacing:.24em;color:#8f4b5c;
-  background:var(--tape);clip-path:polygon(2% 0,100% 0,98% 50%,100% 100%,0 100%,2% 50%,0 0);transform:rotate(-2deg)}
+h1{margin:0;font-size:1.25rem;font-weight:700;letter-spacing:.04em;line-height:1.3}
+h1 small{display:block;font-family:var(--font-label);font-size:.62rem;font-weight:600;letter-spacing:.2em;color:var(--muted)}
 h1 b{display:block;font-weight:700}
-/* 切り替えは個人ページと同じ「見出しタブ」 */
+/* ページ間の移動：ホーム →「コラボ記録」、コラボ記録 →「‹ ホーム」 */
+.pagelink{margin-left:auto;display:inline-flex;align-items:center;gap:8px;text-decoration:none;font-weight:700;font-size:.88rem;color:var(--ui-d);
+  background:var(--paper);border-radius:99px;padding:7px 16px;box-shadow:0 1px 0 var(--grid-2)}
+.pagelink:hover{box-shadow:0 0 0 1.5px var(--ui)}
+.back{display:inline-block;position:relative;padding-left:10px;margin-bottom:2px;font-size:.74rem;font-weight:500;letter-spacing:.06em;color:var(--ink-soft);text-decoration:none}
+.back::before{content:"";position:absolute;left:1px;top:50%;width:5px;height:5px;border-left:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:translateY(-50%) rotate(45deg)}
+.back:hover{color:var(--ink);text-decoration:underline}
+/* （旧）見出しタブ */
 .seg{display:flex;gap:4px;align-items:flex-end;margin-left:auto;align-self:flex-end}
 .seg button{border:0;background:var(--ui-l);color:var(--ink-soft);font-weight:700;font-size:.88rem;letter-spacing:.06em;
   padding:8px 18px 6px;border-radius:8px 8px 0 0;box-shadow:inset 0 -2px 0 var(--board)}
@@ -225,11 +230,11 @@ h1 b{display:block;font-weight:700}
 <body>
 <div class="wrap">
   <header>
-    <h1><small>MECHATU-A</small><b>配信スケジュール</b></h1>
-    <div class="seg" role="tablist">
-      <button role="tab" id="t-week" aria-selected="true">週タイムライン</button>
-      <button role="tab" id="t-co" aria-selected="false">コラボ</button>
+    <div class="ttl-box">
+      <a class="back" id="back-home" href="./" hidden>ホーム</a>
+      <h1><small>MECHATU-A</small><b id="page-title">配信スケジュール</b></h1>
     </div>
+    <a class="pagelink" id="to-co" href="collab.html">コラボ記録<span aria-hidden="true">→</span></a>
   </header>
   <nav class="links" id="links" aria-label="各メンバーのページ"></nav>
   <p class="err" id="err" hidden></p>
@@ -588,20 +593,26 @@ function openDeadlines(){
 }
 
 // ---------- 画面の切り替え ----------
-let tab="week";
+// ホーム（index.html）とコラボ記録（collab.html）は同じプログラム。collab.html はこのファイルを読み込んで表示するだけ
+const tab=/collab\.html$/.test(location.pathname)?"co":"week";
+// 以前の URL（index.html#co/〜）で開かれたら、コラボ記録のページへ移す
+if(tab==="week"&&location.hash.startsWith("#co"))location.replace("collab.html"+(location.hash.split("/")[1]?"#"+location.hash.split("/")[1]:""));
+function setupPage(){
+  $("top").hidden=tab!=="week";$("p-week").hidden=tab!=="week";$("p-co").hidden=tab!=="co";
+  $("to-co").hidden=tab!=="week";$("back-home").hidden=tab!=="co";
+  $("page-title").textContent=tab==="co"?"コラボ記録":"配信スケジュール";
+  document.title=tab==="co"?"mechatu-log｜コラボ記録":"mechatu-log";
+}
 function render(){
   $("links").innerHTML=M.map(m=>`<a href="${BASE+m.repo}/" style="--c:${m.c}"><i class="dot"></i>${esc(m.name)}</a>`).join("");
-  $("p-week").hidden=tab!=="week";$("p-co").hidden=tab!=="co";
-  $("t-week").setAttribute("aria-selected",tab==="week");$("t-co").setAttribute("aria-selected",tab==="co");
-  renderTop();
-  if(tab==="week")renderWeek();else renderCo();
+  setupPage();
+  if(tab==="week"){renderTop();renderWeek()}else renderCo();
 }
-function setHash(){const p=[];if(tab==="co"){p.push("co");if(selected.size)p.push([...selected].map(r=>r.replace(/-log$/,"")).join("+"))}
-  history.replaceState(null,"",p.length?"#"+p.join("/"):location.pathname)}
-function readHash(){const p=location.hash.slice(1).split("/");if(p[0]==="co"){tab="co";if(p[1])p[1].split("+").forEach(s=>selected.add(s+"-log"))}}
+// コラボ記録の選択状態は URL の # に残す（例：collab.html#koyanagi+akagi）
+function setHash(){if(tab!=="co")return;const h=[...selected].map(r=>r.replace(/-log$/,"")).join("+");
+  history.replaceState(null,"",h?"#"+h:location.pathname)}
+function readHash(){if(tab!=="co")return;const h=location.hash.slice(1).replace(/^co\/?/,"");if(h)h.split("+").forEach(s=>selected.add(s+"-log"))}
 
-$("t-week").onclick=()=>{tab="week";setHash();render()};
-$("t-co").onclick=()=>{tab="co";setHash();render()};
 $("prev").onclick=()=>{cursor=addDays(cursor,-7);renderWeek()};
 $("next").onclick=()=>{cursor=addDays(cursor,7);renderWeek()};
 $("today").onclick=()=>{cursor=Date.now();renderWeek()};  // cursor は実時刻。6時前なら前日扱い（sow(cursor-OFF)）
@@ -617,9 +628,10 @@ document.addEventListener("click",ev=>{
 });
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet()});
 readHash();
+setupPage();   // 読み込み前から、そのページに要る部分だけを出しておく
 load();
 // 5分ごとに「配信中」と現在時刻の線を更新
-setInterval(()=>{renderTop();if(tab==="week")renderWeek()},5*60e3);
+setInterval(()=>{if(tab==="week"){renderTop();renderWeek()}},5*60e3);
 })();
 </script>
 </body>

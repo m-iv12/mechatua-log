@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>mechatu-log｜コラボ記録</title>
+</head>
+<body>
+<!-- コラボ記録のページ。中身はホームと同じ index.html を読み込み、URL（collab.html）を見てコラボ記録だけを表示する -->
+<p id="loading" style="font-family:sans-serif;color:#888;padding:20px">読み込み中…</p>
+<script>
+fetch("index.html",{cache:"no-cache"})
+  .then(function(r){if(!r.ok)throw new Error(r.status);return r.text()})
+  .then(function(html){document.open();document.write(html);document.close()})
+  .catch(function(){document.getElementById("loading").textContent="画面を読み込めませんでした。時間をおいて再読み込みしてください。"});
+</script>
+</body>
+</html>
