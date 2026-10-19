@@ -11,6 +11,7 @@
 
 環境変数 YOUTUBE_API_KEY が必要。FULL_REFRESH=1 か、config.json の since を変えると全件を取り直す。
 """
+import html
 import json
 import os
 import re
@@ -465,7 +466,11 @@ def merge(own, partners, own_name):
         elif p.get("source") in ("manual", "watch"):
             # 本人の枠がない配信は、手動で登録したものと指定チャンネルのものだけ表示する
             items[p["id"]] = dict(p, collabs=[])
-        # 自動で拾ったもので本人の配信と重ならないものは、無関係の可能性があるので表示しない
+        elif p.get("source") == "auto" and kw and kw.search(p["title"]):
+            # 自動で拾ったものでも、相手のタイトルに自分の名前（またはユニット名）があれば、
+            # 本人の枠なしで出演した配信として表示する（概要欄だけで当たったものは表示しない）
+            items[p["id"]] = dict(p, collabs=[])
+        # それ以外（概要欄でだけ名前が当たったもの）は、無関係の可能性があるので表示しない
 
     # 手動の予定（枠が立ったら、同じ時間帯の枠があるので自動的に消える）
     for i, s in enumerate(load(DATA / "schedule.json", [])):
@@ -495,6 +500,38 @@ def merge(own, partners, own_name):
     return sorted(out, key=lambda r: r["start"])
 
 
+# ---------- ポストの本文 ----------
+def fill_post_texts(limit=20):
+    """posts.json のポストに本文（body）がなければ、X の公式埋め込み（oEmbed、登録不要）から取って書き足す。
+    取れなかったものは次回にもう一度試す。1回に試すのは limit 件まで。"""
+    path = DATA / "posts.json"
+    posts = load(path, [])
+    changed, tried = False, 0
+    for p in posts:
+        if "body" in p or tried >= limit or "/status/" not in p.get("url", ""):
+            continue
+        tried += 1
+        url = re.sub(r"^https://(?:www\.)?x\.com/", "https://twitter.com/", p["url"].split("?")[0])
+        try:
+            req = urllib.request.Request("https://publish.twitter.com/oembed?" + urllib.parse.urlencode(
+                {"url": url, "omit_script": "1", "lang": "ja", "dnt": "true"}), headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=20) as r:
+                h = json.load(r).get("html", "")
+        except Exception as e:
+            print("ポスト本文を取得できませんでした:", p["url"], e)
+            continue
+        m = re.search(r"<p[^>]*>(.*?)</p>", h, re.S)
+        body = m.group(1) if m else ""
+        body = re.sub(r"<br\s*/?>", "\n", body)
+        body = re.sub(r"<a [^>]*>(pic\.twitter\.com/\S+|https?://t\.co/\S+)</a>", "", body)  # 画像・リンクの短縮 URL は除く
+        body = html.unescape(re.sub(r"<[^>]+>", "", body)).strip()
+        p["body"] = body
+        changed = True
+    if changed:
+        save(path, posts)
+        print(f"ポスト本文: {tried} 件を確認")
+
+
 def main():
     if not KEY:
         sys.exit("環境変数 YOUTUBE_API_KEY が設定されていません。")
@@ -517,6 +554,7 @@ def main():
     save(OUT, data)
     save(DATA / "cache_meta.json", {"since": CONFIG["since"], "channel": CONFIG["channel"], "scanned_channels": sorted(scanned)})
     print(f"表示用データ: {len(data)} 件")
+    fill_post_texts()
 
 
 if __name__ == "__main__":
