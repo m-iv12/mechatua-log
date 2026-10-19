@@ -187,6 +187,9 @@ h1 b{display:block;font-weight:700}
 .dl .sub .chip{font-size:.64rem;padding:0 6px}
 .dl .all{background:var(--paper);color:var(--ink);box-shadow:inset 0 0 0 1px var(--ui)}
 .dl:hover .ttl{text-decoration:underline}
+.dl-more{display:block;margin:8px auto 0;border:1px dashed var(--memo-d);background:rgb(255 255 255 / .6);color:var(--ink-soft);border-radius:99px;padding:4px 14px;font-size:.76rem;font-weight:700}
+.dl-more:hover{background:var(--paper)}
+.dl-all-list{margin-top:12px}
 @media (max-width:640px){.lv a{width:162px}.lv img,.lv .ph{width:146px}}
 
 /* ---- 詳細 ---- */
@@ -564,12 +567,24 @@ function renderTop(){
     const k=(x.title||"")+"|"+x.deadline;const o=map.get(k)||{title:x.title||"締切",t,url:x.url,all:false,who:new Set()};
     if(who==="all")o.all=true;else o.who.add(who);if(!o.url&&x.url)o.url=x.url;map.set(k,o)};
   SHARED_DL.forEach(x=>add(x,"all"));M.forEach(m=>m.dl.forEach(x=>add(x,m)));
-  const list=[...map.values()].sort((a,b)=>a.t-b.t).slice(0,5);
-  $("dls").innerHTML=list.length?list.map(d=>{const days=Math.ceil((sod(d.t)-sod(now))/DAY);
+  DL_ALL=[...map.values()].sort((a,b)=>a.t-b.t);
+  const list=DL_ALL.slice(0,3);   // 上部には近いものから3件。残りは「すべて見る」で
+  $("dls").innerHTML=(list.length?dlHTML(list):`<p class="none">近い締切はありません</p>`)+
+    (DL_ALL.length>3?`<button class="dl-more" id="dl-more">すべて見る（${DL_ALL.length}件）</button>`:"");
+}
+let DL_ALL=[];
+function dlHTML(list){
+  const now=Date.now();
+  return list.map(d=>{const days=Math.ceil((sod(d.t)-sod(now))/DAY);
     const who=d.all||d.who.size===M.length?`<span class="chip all">全員</span>`:[...d.who].sort((a,b)=>a.i-b.i).map(m=>`<span class="chip" style="--c:${m.c};--ci:${m.ci}">${esc(m.short)}</span>`).join("");
     return `<a class="dl" href="${esc(d.url||"#")}" target="_blank" rel="noopener"><span class="left">${days<=0?"今日":"あと"+days+"日"}</span><span class="ttl">${esc(d.title)}</span>
-      <span class="sub">${md(d.t)}（${WD[new Date(d.t).getDay()]}）${hm(d.t)}　${who}</span></a>`}).join("")
-    :`<p class="none">近い締切はありません</p>`;
+      <span class="sub">${md(d.t)}（${WD[new Date(d.t).getDay()]}）${hm(d.t)}　${who}</span></a>`}).join("");
+}
+function openDeadlines(){
+  $("sheet-in").style.setProperty("--c","var(--memo-d)");
+  $("sheet-in").innerHTML=`<div class="sh-top"><span class="chip all">締切</span><span class="sh-meta">これから先の締切 ${DL_ALL.length}件・近い順</span>
+    <button class="x" id="sh-x" aria-label="閉じる">×</button></div><div class="dl-all-list">${dlHTML(DL_ALL)}</div>`;
+  $("sheet").hidden=false;$("bd").hidden=false;$("sh-x").focus();
 }
 
 // ---------- 画面の切り替え ----------
@@ -596,6 +611,7 @@ document.addEventListener("click",ev=>{
   const a=ev.target.closest("[data-add]");if(a){selected.add(a.dataset.add);shown=40;setHash();renderCo();return}
   const y=ev.target.closest("[data-y]");if(y){year=y.dataset.y;shown=40;renderCo();return}
   if(ev.target.id==="clear"){selected.clear();shown=40;setHash();renderCo();return}
+  if(ev.target.id==="dl-more"){openDeadlines();return}
   if(ev.target.id==="more"){shown+=40;renderCo();return}
   if(ev.target.id==="bd"||ev.target.id==="sh-x")closeSheet();
 });
