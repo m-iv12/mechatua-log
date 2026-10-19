@@ -716,24 +716,27 @@ function measure(){const v=$("view");MEAS=v?v.clientHeight:0;
   HH=avail>200?Math.max(12,Math.min(44,2*Math.floor(avail/48))):22;
   if(v){v.style.setProperty("--hh",HH+"px");v.style.setProperty("--wkh",WKH+"px");v.classList.toggle("dense",HH<22)}
   COLW=Math.max(30,((v?v.clientWidth:700)-30)/7-4)}
+// 週表示の1日は朝6時〜翌朝6時（日付をまたぐ配信が多いため）。0〜6時は前の日として扱う
+const OFF=6*H;
+const dayStartOf=t=>sod(t-OFF)+OFF;   // その時刻が属する「1日」の始まり（朝6時）
 function renderWeek(){
   measure();
-  const ws=sow(cursor),we=addDays(ws,7),today=sod(Date.now());
+  const ws=sow(cursor-OFF),we=addDays(ws,7),today=sod(Date.now()-OFF);
   const s=new Date(ws),e=new Date(addDays(ws,6));
   $("label").innerHTML=`<small>${s.getFullYear()}年</small><span class="wk-rg">${s.getMonth()+1}/${s.getDate()}–${e.getMonth()+1}/${e.getDate()}</span>`;
   let head='<div class="wk-grid wk-head"><div></div>',body='<div class="wk-grid"><div class="gutter">';
-  for(let h=1;h<24;h++)body+=`<span style="top:calc(${h} * var(--hh))">${h}</span>`;
+  for(let h=1;h<24;h++)body+=`<span style="top:calc(${h} * var(--hh))">${(h+6)%24}</span>`;
   body+="</div>";
   for(let i=0;i<7;i++){
-    const d0=addDays(ws,i),d1=addDays(ws,i+1),dw=new Date(d0).getDay();
+    const dd=addDays(ws,i),d0=dd+OFF,d1=addDays(ws,i+1)+OFF,dw=new Date(dd).getDay();
     const segs=streams.filter(x=>x.end>d0&&x.start<d1);
     const tot=segs.filter(x=>!isUp(x)).reduce((acc,x)=>acc+overlap(x.start,x.end,d0,d1),0);
-    const cls=(dw===6?" sat":dw===0?" sun":"")+(d0===today?" today":"");
-    head+=`<div class="dh${cls}"><span class="dd">${new Date(d0).getDate()}</span><span class="dw">${WD[dw]}</span><span class="dt">${tot?hrs(tot)+"h":""}</span>${deadlines.filter(x=>x.time>=d0&&x.time<d1).map(x=>`<button class="dl-tag" data-id="${x.id}" aria-label="締切 ${esc(x.title)}">締切</button>`).join("")}</div>`;
-    body+=`<div class="col${d0===today?" today":""}">`;
+    const cls=(dw===6?" sat":dw===0?" sun":"")+(dd===today?" today":"");
+    head+=`<div class="dh${cls}"><span class="dd">${new Date(dd).getDate()}</span><span class="dw">${WD[dw]}</span><span class="dt">${tot?hrs(tot)+"h":""}</span>${deadlines.filter(x=>x.time>=d0&&x.time<d1).map(x=>`<button class="dl-tag" data-id="${x.id}" aria-label="締切 ${esc(x.title)}">締切</button>`).join("")}</div>`;
+    body+=`<div class="col${dd===today?" today":""}">`;
     segs.forEach(x=>{
       const a=Math.max(x.start,d0),b=Math.min(x.end,d1);
-      const first=Math.min(x.end,addDays(sod(x.start),1))-x.start;
+      const first=Math.min(x.end,addDays(dayStartOf(x.start),1))-x.start;
       const rest=x.end-x.start-first;
       const top=(a-d0)/DAYMS*100,ht=(b-a)/DAYMS*100;
       const cut=(a>x.start?" top-cut":"")+(b<x.end?" bot-cut":"");
@@ -741,7 +744,7 @@ function renderWeek(){
       // サムネイルは青を重ねて背景にうっすら敷く（予定のカードは除く）
       const bg=x.thumb&&!isUp(x)?` style="--th:url(&quot;${esc(x.thumb)}&quot;)"`:"";
       // 日付をまたぐ配信：時刻の札は必ず開始側。ゲーム名・タイトルは開始側に入りきらなければ翌日側へ
-      const isFirst=a===x.start, isSecond=!isFirst&&a===addDays(sod(x.start),1);
+      const isFirst=a===x.start, isSecond=!isFirst&&a===addDays(dayStartOf(x.start),1);
       const firstPx=first/H*HH, restPx=rest/H*HH;
       const sub=isUp(x)?"予定":x.status==="live"?"LIVE":`${hrs(x.end-x.start)}h`;
       const gameFirst=firstPx>=24||restPx<24;              // ゲーム行（上の余白10px＋14px）
@@ -759,12 +762,12 @@ function renderWeek(){
     posts.filter(p=>p.time>=d0&&p.time<d1).forEach(p=>{
       body+=`<button class="post${p.ann?" ann":""}" style="top:${(p.time-d0)/DAYMS*100}%" data-id="${p.id}" aria-label="ポスト ${hm(p.time)}"></button>`;
     });
-    if(d0===today){body+=`<div class="nowline" style="top:${(Date.now()-d0)/DAYMS*100}%"></div>`}
+    if(dd===today){body+=`<div class="nowline" style="top:${(Date.now()-d0)/DAYMS*100}%"></div>`}
     body+="</div>";
   }
   $("view").innerHTML=head+"</div>"+body+"</div>";
   $("view").querySelector(".wk-head").addEventListener("click",ev=>{const b=ev.target.closest("[data-id]");if(b){ev.stopPropagation();const x=events.find(y=>y.id===b.dataset.id);if(x)openSheet(x)}});
-  summary(ws,we);
+  summary(ws+OFF,we+OFF);
 }
 
 function renderMonth(){
@@ -855,7 +858,7 @@ $("view").addEventListener("click",e=>{
   const b=e.target.closest("[data-id]");
   if(b){const ev=events.find(x=>x.id===b.dataset.id);if(ev)openSheet(ev);return}
   const d=e.target.closest("[data-day]");
-  if(d){cursor=+d.dataset.day;view="week";render()}
+  if(d){cursor=+d.dataset.day+12*H;view="week";render()}
 });
 $("deadlines").addEventListener("click",e=>{const b=e.target.closest("[data-id]");if(b){const ev=events.find(x=>x.id===b.dataset.id);if(ev)openSheet(ev)}});
 // コラボ相手の枠の除外（GitHub の Issue で登録。押すと確認表示 → もう一度押すと登録画面へ）
@@ -894,7 +897,7 @@ $("label").onclick=()=>{$("picker").hidden?openPicker():closePicker()};
 $("pk-prev").onclick=()=>{pkYear--;renderPicker()};
 $("pk-next").onclick=()=>{pkYear++;renderPicker()};
 $("pk-grid").addEventListener("click",e=>{const b=e.target.closest("[data-m]");if(!b)return;
-  cursor=new Date(pkYear,+b.dataset.m,1).getTime();closePicker();render()});
+  cursor=new Date(pkYear,+b.dataset.m,1,12).getTime();closePicker();render()});
 document.addEventListener("click",e=>{if(!$("picker").hidden&&!e.target.closest("#picker,#label"))closePicker()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closePicker()});
 $("summary").addEventListener("click",e=>{const b=e.target.closest("[data-game]");if(!b)return;
@@ -902,8 +905,8 @@ $("summary").addEventListener("click",e=>{const b=e.target.closest("[data-game]"
 $("back").onclick=()=>{view=backView;render()};
 $("v-week").onclick=()=>{view="week";render()};
 $("v-month").onclick=()=>{view="month";render()};
-$("prev").onclick=()=>{if(view==="week")cursor=addDays(cursor,-7);else{const c=new Date(cursor);cursor=new Date(c.getFullYear(),c.getMonth()-1,1).getTime()}render()};
-$("next").onclick=()=>{if(view==="week")cursor=addDays(cursor,7);else{const c=new Date(cursor);cursor=new Date(c.getFullYear(),c.getMonth()+1,1).getTime()}render()};
+$("prev").onclick=()=>{if(view==="week")cursor=addDays(cursor,-7);else{const c=new Date(cursor);cursor=new Date(c.getFullYear(),c.getMonth()-1,1,12).getTime()}render()};
+$("next").onclick=()=>{if(view==="week")cursor=addDays(cursor,7);else{const c=new Date(cursor);cursor=new Date(c.getFullYear(),c.getMonth()+1,1,12).getTime()}render()};
 $("today").onclick=()=>{cursor=Date.now();render()};
 $("backdrop").onclick=closeSheet;$("sh-close").onclick=closeSheet;
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet()});
