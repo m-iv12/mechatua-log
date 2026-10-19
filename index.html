@@ -52,6 +52,7 @@ h1 small{display:block;font-family:var(--font-label);font-size:.62rem;font-weigh
 .now-box{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-left:auto;font-size:.8rem;color:var(--ink-soft)}
 .now-box b{font-family:var(--font-label);font-size:.66rem;letter-spacing:.16em;color:var(--now)}
 .chip{display:inline-flex;align-items:center;gap:4px;border-radius:99px;padding:2px 9px;font-size:.76rem;font-weight:700;background:var(--c);color:var(--ci);text-decoration:none;border:0;white-space:nowrap}
+.chip.maybe{background:var(--paper);color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--c);border:1px dashed transparent}
 .chip.live::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;animation:blink 1.4s infinite}
 @keyframes blink{50%{opacity:.25}}
 
@@ -138,6 +139,32 @@ h1 small{display:block;font-family:var(--font-label);font-size:.62rem;font-weigh
 .more{display:block;margin:12px auto 0;border:1.5px solid var(--ui);background:var(--paper);color:var(--ui-d);border-radius:99px;padding:7px 22px;font-weight:700;font-size:.85rem}
 .empty{color:var(--muted);font-size:.85rem;padding:20px 0;text-align:center}
 
+/* ---- 上部：配信中・締切 ---- */
+.top-in{display:grid;gap:12px;padding:12px}
+@media (min-width:900px){.top-in{grid-template-columns:minmax(0,1fr) 340px}}
+.top-h{margin:0 0 8px;font-size:.8rem;font-weight:700;color:var(--ink-soft);display:flex;align-items:baseline;gap:8px}
+.top-h b{font-family:var(--font-label);font-size:.66rem;letter-spacing:.16em;color:var(--now)}
+.dl-box .top-h b{color:var(--ui)}
+.lv{display:flex;gap:10px;overflow-x:auto;padding-bottom:2px}
+.lv a{flex:none;width:170px;text-decoration:none;color:var(--ink)}
+.lv img,.lv .ph{display:block;width:170px;aspect-ratio:16/9;object-fit:cover;border-radius:5px;border-bottom:3px solid var(--c);background:var(--grid)}
+.lv .who{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:.72rem;color:var(--ink-soft)}
+.lv .who .chip{font-size:.68rem;padding:1px 8px}
+.lv em{font-style:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:.76rem;line-height:1.4;margin-top:2px}
+.lv a:hover em{text-decoration:underline}
+.lv a.maybe img,.lv a.maybe .ph{opacity:.55}
+.lv a.maybe .who::after{content:"確認待ち";font-size:.64rem;color:var(--muted)}
+.none{margin:0;font-size:.8rem;color:var(--muted)}
+.dl{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;align-items:center;padding:6px 0;border-top:1px dashed var(--grid-2);text-decoration:none;color:var(--ink)}
+.dl:first-child{border-top:0;padding-top:0}
+.dl .left{grid-row:1 / 3;font-weight:700;font-size:.78rem;background:var(--ui);color:#fff;border-radius:4px;padding:3px 8px;white-space:nowrap}
+.dl .ttl{font-size:.84rem;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dl .sub{display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:.72rem;color:var(--ink-soft)}
+.dl .sub .chip{font-size:.64rem;padding:0 6px}
+.dl .all{background:var(--paper);color:var(--ink);box-shadow:inset 0 0 0 1px var(--ui)}
+.dl:hover .ttl{text-decoration:underline}
+@media (max-width:640px){.lv a,.lv img,.lv .ph{width:150px}}
+
 /* ---- 詳細 ---- */
 .backdrop{position:fixed;inset:0;background:rgb(40 46 60 / .35);z-index:20}
 .sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;display:flex;justify-content:center;pointer-events:none}
@@ -179,6 +206,13 @@ h1 small{display:block;font-family:var(--font-label);font-size:.62rem;font-weigh
   </header>
   <nav class="links" id="links" aria-label="各メンバーのページ"></nav>
   <p class="err" id="err" hidden></p>
+
+  <section class="card top" id="top">
+    <div class="paper top-in">
+      <div class="live-box"><p class="top-h"><b>LIVE</b>配信中</p><div class="lv" id="live"></div></div>
+      <div class="dl-box"><p class="top-h"><b>DEADLINE</b>締切が近いもの</p><div id="dls"></div></div>
+    </div>
+  </section>
 
   <section class="card" id="p-week">
     <div class="nav">
@@ -233,21 +267,22 @@ const hrs=ms=>{const h=Math.round(ms/H*2)/2;return h%1?h.toFixed(1):String(h)};
 const vid=u=>{const m=String(u||"").match(/(?:v=|youtu\.be\/|\/live\/|\/shorts\/)([A-Za-z0-9_-]{11})/);return m?m[1]:null};
 const cleanTitle=t=>String(t||"").replace(/^\s*【[^】]*】\s*/,"").replace(/\s*【[^】]*にじさんじ[^】]*】\s*$/,"").replace(/\s*[\/／]\s*[^\/／]*にじさんじ[^\/／]*$/,"").trim()||String(t||"");
 
-let M=[], entries=[], events=[], cursor=Date.now(), selected=new Set(), year="all", shown=40;
+let SHARED_DL=[], M=[], entries=[], events=[], cursor=Date.now(), selected=new Set(), year="all", shown=40;
 
 // ---------- 読み込み ----------
 async function getJSON(p){try{const r=await fetch(p,{cache:"no-cache"});return r.ok?await r.json():null}catch(e){return null}}
 async function load(){
   const res=await Promise.all(MEMBERS.map(async m=>{
-    const [cfg,st]=await Promise.all([getJSON(BASE+m.repo+"/config.json"),getJSON(BASE+m.repo+"/streams.json")]);
-    return {m,cfg,st};
+    const [cfg,st,dl]=await Promise.all([getJSON(BASE+m.repo+"/config.json"),getJSON(BASE+m.repo+"/streams.json"),getJSON(BASE+m.repo+"/deadlines.json")]);
+    return {m,cfg,st,dl};
   }));
+  SHARED_DL=(await getJSON("common/deadlines.json"))||[];   // MECHATU-A 全員の締切
   const missing=res.filter(r=>!r.cfg||!r.st).map(r=>r.m.repo);
   if(missing.length){$("err").hidden=false;$("err").textContent="読み込めなかったページ："+missing.join("、")}
   M=res.filter(r=>r.cfg&&r.st).map((r,i)=>{
     const c=r.cfg,t=Object.assign({},DEFAULT,c.theme||{}),kw=c.collab_keywords||[];
     return {i,repo:r.m.repo,unit:r.m.unit,name:c.name||r.m.repo,short:kw[2]||c.name,kw,   // 省略表記は名字（collab_keywords の3つ目）
-      c:t.ev,ci:t["ev-ink"]||"#fff",main:t.main,streams:r.st};
+      c:t.ev,ci:t["ev-ink"]||"#fff",main:t.main,streams:r.st,dl:r.dl||[]};
   });
   build();
 }
@@ -378,14 +413,12 @@ function renderWeek(){
   const ws=sow(cursor-OFF),now=Date.now(),today=sod(now-OFF);
   $("wk-label").textContent=`${new Date(ws).getFullYear()}年 ${md(ws)} – ${md(addDays(ws,6))}`;
   // 配信中
-  const live=entries.filter(x=>x.own&&x.s<=now&&x.e>now&&x.st!=="upcoming");
   const next=entries.filter(x=>x.own&&x.s>now).sort((a,b)=>a.s-b.s).slice(0,3);
-  $("now-box").innerHTML=(live.length?`<b>LIVE</b>`+live.map(x=>`<a class="chip live" style="--c:${x.m.c};--ci:${x.m.ci}" href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.m.short)}</a>`).join(""):"")+
-    (next.length?`<b style="color:var(--muted)">NEXT</b>`+next.map(x=>`<button class="chip" data-k="${entries.indexOf(x)}" style="--c:${x.m.c};--ci:${x.m.ci}">${esc(x.m.short)} ${new Date(x.s).getDate()}日 ${hm(x.s)}</button>`).join(""):"");
+  $("now-box").innerHTML=(next.length?`<b style="color:var(--muted)">NEXT</b>`+next.map(x=>`<button class="chip" data-k="${entries.indexOf(x)}" style="--c:${x.m.c};--ci:${x.m.ci}">${esc(x.m.short)} ${new Date(x.s).getDate()}日 ${hm(x.s)}</button>`).join(""):"");
   let h="";
   for(let d=0;d<7;d++){
     const dd=addDays(ws,d),d0=dd+OFF,d1=addDays(ws,d+1)+OFF,dw=new Date(dd).getDay();
-    const inDay=entries.filter(x=>x.s<d1&&x.e>d0);
+    const inDay=entries.filter(x=>x.s<d1&&(x.st==="live"?Math.max(x.e,now):x.e)>d0);
     h+=`<div class="day${dd===today?" today":""}"><div class="d-head"><span class="d-label${dw===6?" sat":dw===0?" sun":""}">${new Date(dd).getDate()}<small>${WD[dw]}</small></span><div class="scale">`;
     for(let k=3;k<24;k+=3)h+=`<span style="left:${k/24*100}%">${(k+6)%24}</span>`;
     h+=`</div></div>`;
@@ -406,12 +439,13 @@ function rowHTML(m,items,d0,d1,now){
   let h=`<div class="row"><div class="r-name">${m?`<span class="chip" style="--c:${m.c};--ci:${m.ci}">${esc(m.short)}</span>`:`<span class="off">公式</span>`}</div><div class="track">`;
   if(now>=d0&&now<d1)h+=`<i class="nowline" style="left:${(now-d0)/DAY*100}%"></i>`;
   for(const x of items){
-    const s=Math.max(x.s,d0),e=Math.min(x.e,d1),L=(s-d0)/DAY*100,W=(e-s)/DAY*100;
+    const xe=x.st==="live"?Math.max(x.e,now):x.e;   // 配信中の帯は、描き直すたびに現在時刻まで伸ばす
+    const s=Math.max(x.s,d0),e=Math.min(xe,d1),L=(s-d0)/DAY*100,W=(e-s)/DAY*100;
     const c=x.m||x.repoM,cls=["bar"];
     if(x.st==="upcoming")cls.push("up");
     if(!x.own)cls.push("other");
     if(x.ev)cls.push("co");
-    if(x.s<d0)cls.push("cut-l");if(x.e>d1)cls.push("cut-r");
+    if(x.s<d0)cls.push("cut-l");if(xe>d1)cls.push("cut-r");
     const lab=W>4?`<span class="t">${hm(x.s)}</span>${esc(x.game||cleanTitle(x.title))}`:"";
     h+=`<button class="${cls.join(" ")}" data-k="${entries.indexOf(x)}" style="left:${L}%;width:${W}%;--c:${m?m.c:"var(--ui)"};--ci:${m?m.ci:"#fff"}" title="${esc(hm(x.s)+" "+x.title)}">${lab}</button>`;
   }
@@ -491,12 +525,36 @@ function openSheet(x){
 }
 function closeSheet(){$("sheet").hidden=true;$("bd").hidden=true}
 
+// ---------- 上部：配信中・締切 ----------
+function renderTop(){
+  const now=Date.now();
+  const live=entries.filter(x=>x.own&&x.st==="live").sort((a,b)=>a.m.i-b.m.i);
+  const maybe=entries.filter(x=>x.own&&x.st==="upcoming"&&x.s<=now&&now-x.s<3*H).sort((a,b)=>a.m.i-b.m.i);
+  const tile=(x,cls)=>`<a class="${cls}" href="${esc(x.url)}" target="_blank" rel="noopener" style="--c:${x.m.c}">${x.thumb?`<img src="${esc(x.thumb)}" alt="" loading="lazy">`:`<i class="ph"></i>`}
+    <span class="who"><span class="chip" style="--c:${x.m.c};--ci:${x.m.ci}">${esc(x.m.short)}</span>${hm(x.s)}〜</span><em>${esc(cleanTitle(x.title))}</em></a>`;
+  $("live").innerHTML=live.length||maybe.length?live.map(x=>tile(x,"")).join("")+maybe.map(x=>tile(x,"maybe")).join("")
+    :`<p class="none">配信中の枠はありません（30分ごとに更新）</p>`;
+  // 締切：全員分（common/deadlines.json）と各メンバーの分。同じ内容・同じ日時は1件にまとめる
+  const map=new Map();
+  const add=(x,who)=>{if(!x||!x.deadline)return;const t=Date.parse(x.deadline);if(!(t>=now))return;
+    const k=(x.title||"")+"|"+x.deadline;const o=map.get(k)||{title:x.title||"締切",t,url:x.url,all:false,who:new Set()};
+    if(who==="all")o.all=true;else o.who.add(who);if(!o.url&&x.url)o.url=x.url;map.set(k,o)};
+  SHARED_DL.forEach(x=>add(x,"all"));M.forEach(m=>m.dl.forEach(x=>add(x,m)));
+  const list=[...map.values()].sort((a,b)=>a.t-b.t).slice(0,5);
+  $("dls").innerHTML=list.length?list.map(d=>{const days=Math.ceil((sod(d.t)-sod(now))/DAY);
+    const who=d.all||d.who.size===M.length?`<span class="chip all">全員</span>`:[...d.who].sort((a,b)=>a.i-b.i).map(m=>`<span class="chip" style="--c:${m.c};--ci:${m.ci}">${esc(m.short)}</span>`).join("");
+    return `<a class="dl" href="${esc(d.url||"#")}" target="_blank" rel="noopener"><span class="left">${days<=0?"今日":"あと"+days+"日"}</span><span class="ttl">${esc(d.title)}</span>
+      <span class="sub">${md(d.t)}（${WD[new Date(d.t).getDay()]}）${hm(d.t)}　${who}</span></a>`}).join("")
+    :`<p class="none">近い締切はありません</p>`;
+}
+
 // ---------- 画面の切り替え ----------
 let tab="week";
 function render(){
   $("links").innerHTML=M.map(m=>`<a href="${BASE+m.repo}/" style="--c:${m.c}"><i class="dot"></i>${esc(m.name)}</a>`).join("");
   $("p-week").hidden=tab!=="week";$("p-co").hidden=tab!=="co";
   $("t-week").setAttribute("aria-selected",tab==="week");$("t-co").setAttribute("aria-selected",tab==="co");
+  renderTop();
   if(tab==="week")renderWeek();else renderCo();
 }
 function setHash(){const p=[];if(tab==="co"){p.push("co");if(selected.size)p.push([...selected].map(r=>r.replace(/-log$/,"")).join("+"))}
@@ -521,7 +579,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet()});
 readHash();
 load();
 // 5分ごとに「配信中」と現在時刻の線を更新
-setInterval(()=>{if(tab==="week")renderWeek()},5*60e3);
+setInterval(()=>{renderTop();if(tab==="week")renderWeek()},5*60e3);
 })();
 </script>
 </body>
