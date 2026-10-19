@@ -108,7 +108,9 @@ h1 b{display:block;font-weight:700}
 .day.today{background:linear-gradient(90deg,#f7f8fb,#fff)}
 .d-head{display:flex;align-items:flex-end;height:28px;border-bottom:1px solid var(--grid)}
 .d-label{position:sticky;left:0;z-index:3;width:var(--name-w);flex:none;background:inherit;padding:0 0 3px 8px;font-weight:700;font-size:.92rem;line-height:1;background:var(--paper)}
-.day.today .d-label{color:var(--now)}
+/* 今日：文字色は変えず（祝日と見分けがつかなくなるため）、日付を灰色の丸で囲む */
+.d-label .dn{display:inline-block;min-width:1.7em;text-align:center}
+.day.today .d-label .dn{background:var(--ui);color:#fff;border-radius:99px;padding:2px 6px 1px;margin-left:-6px}
 .d-label small{font-size:.66rem;font-weight:500;margin-left:2px}
 .d-label.sat small{color:var(--sat)} .d-label.sun small{color:var(--sun)}
 .scale{position:relative;flex:1;height:100%}
@@ -485,7 +487,7 @@ function renderWeek(){
   for(let d=0;d<7;d++){
     const dd=addDays(ws,d),d0=dd+OFF,d1=addDays(ws,d+1)+OFF,dw=new Date(dd).getDay();
     const inDay=entries.filter(x=>x.s<d1&&(x.st==="live"?Math.max(x.e,now):x.e)>d0);
-    h+=`<div class="day${dd===today?" today":""}"><div class="d-head"><span class="d-label${dw===6?" sat":dw===0?" sun":""}">${new Date(dd).getDate()}<small>${WD[dw]}</small></span><div class="scale">`;
+    h+=`<div class="day${dd===today?" today":""}"><div class="d-head"><span class="d-label${dw===6?" sat":dw===0?" sun":""}"><span class="dn">${new Date(dd).getDate()}</span><small>${WD[dw]}</small></span><div class="scale">`;
     for(let k=3;k<24;k+=3)h+=`<span style="left:${k/24*100}%">${(k+6)%24}</span>`;
     h+=`</div></div>`;
     const rows=M.map(m=>({m,items:inDay.filter(x=>x.m===m)}));
