@@ -14,13 +14,13 @@
 /* 8人分のページ（同じ m-iv12.github.io 内）の streams.json / config.json を読み込んで並べる。
    メンバーの色は各ページの config.json の theme から取る */
 :root{
-  /* 個人ページと同じ「机に置いたクリップボード」の雰囲気。8人の色が並ぶので、土台は淡いラベンダーグレー */
-  --desk:#e7e4ef; --board:#d4d0e2; --paper:#ffffff; --grid:#eeebf4; --grid-2:#dedaea;
-  --ink:#45405c; --ink-soft:#6b6684; --muted:#9b97ae; --ui:#7b75a0; --ui-d:#5f5983; --ui-l:#ebe8f3;
-  --memo:#fbf5e2; --memo-d:#e9dcb0; --clip:#c3c6cd; --clip-d:#a9adb6;
+  /* 個人ページと同じ「机に置いたクリップボード」の雰囲気。8人の色が並ぶので、土台はグレー、差し色だけ淡いピンク */
+  --desk:#e8e8eb; --board:#d7d7dd; --paper:#ffffff; --grid:#efeff2; --grid-2:#e0e0e6;
+  --ink:#45454e; --ink-soft:#6c6c77; --muted:#9d9da7; --ui:#7c7c88; --ui-d:#5d5d68; --ui-l:#ececf0;
+  --memo:#fdf5f6; --memo-d:#efd3d9; --clip:#c3c6cd; --clip-d:#a9adb6;   /* メモ用紙はごく淡いピンク */
   --grid-bg:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
-  --tape:repeating-linear-gradient(90deg,#c9c4dc 0 8px,#b9b3d2 8px 16px);  /* 8人の色に置き換わる */
-  --sun:#c94a64; --sat:#4f6fb0; --now:#d4566c;
+  --tape:repeating-linear-gradient(90deg,#f2c6cf 0 7px,#eab3bf 7px 14px);  /* マスキングテープ：淡いピンクのストライプ */
+  --sun:#c94a64; --sat:#4f6fb0; --now:#d97489;
   --font-label:"Josefin Sans","Zen Maru Gothic",sans-serif;
   --font-body:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Hiragino Sans",sans-serif;
   --name-w:64px; --row-h:30px;
@@ -36,9 +36,9 @@ a{color:inherit}
 /* ---- 見出し・切り替え ---- */
 header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
 h1{margin:0;font-size:1.5rem;font-weight:700;letter-spacing:.06em;line-height:1.3}
-/* 見出しの上の「MECHATU-A」は、8人の色のマスキングテープ */
-h1 small{display:inline-block;margin:0 0 6px -4px;padding:3px 14px 2px;font-family:var(--font-label);font-size:.72rem;font-weight:600;letter-spacing:.24em;color:#fff;
-  background:var(--tape);clip-path:polygon(2% 0,100% 0,98% 50%,100% 100%,0 100%,2% 50%,0 0);transform:rotate(-2deg);text-shadow:0 1px 1px rgb(0 0 0 / .25)}
+/* 見出しの上の「MECHATU-A」は、淡いピンクのマスキングテープ */
+h1 small{display:inline-block;margin:0 0 6px -4px;padding:3px 14px 2px;font-family:var(--font-label);font-size:.72rem;font-weight:600;letter-spacing:.24em;color:#8f4b5c;
+  background:var(--tape);clip-path:polygon(2% 0,100% 0,98% 50%,100% 100%,0 100%,2% 50%,0 0);transform:rotate(-2deg)}
 h1 b{display:block;font-weight:700}
 /* 切り替えは個人ページと同じ「見出しタブ」 */
 .seg{display:flex;gap:4px;align-items:flex-end;margin-left:auto;align-self:flex-end}
@@ -162,7 +162,7 @@ h1 b{display:block;font-weight:700}
 .live-box{padding:12px;min-width:0}
 /* 締切：個人ページと同じ、マスキングテープ付きのメモ用紙 */
 .dl-box{position:relative;background:var(--memo);border-radius:4px;padding:20px 14px 10px;margin-top:8px;box-shadow:0 2px 6px rgb(0 0 0 / .1);
-  background-image:linear-gradient(rgb(233 220 176 / .45) 1px,transparent 1px),linear-gradient(90deg,rgb(233 220 176 / .45) 1px,transparent 1px);background-size:14px 14px}
+  background-image:linear-gradient(rgb(239 211 217 / .5) 1px,transparent 1px),linear-gradient(90deg,rgb(239 211 217 / .5) 1px,transparent 1px);background-size:14px 14px}
 .dl-box::before{content:"";position:absolute;left:50%;top:-9px;width:110px;height:18px;transform:translateX(-50%) rotate(-2deg);
   background:var(--tape);opacity:.85;clip-path:polygon(3% 0,100% 0,97% 50%,100% 100%,0 100%,3% 50%,0 0)}
 .dl-box .top-h{justify-content:center}
@@ -575,8 +575,6 @@ function renderTop(){
 // ---------- 画面の切り替え ----------
 let tab="week";
 function render(){
-  // マスキングテープの柄：8人のメインカラーを順に並べたストライプ
-  if(M.length)document.documentElement.style.setProperty("--tape","repeating-linear-gradient(90deg,"+M.map((m,i)=>`${m.main} ${i*8}px ${(i+1)*8}px`).join(",")+")");
   $("links").innerHTML=M.map(m=>`<a href="${BASE+m.repo}/" style="--c:${m.c}"><i class="dot"></i>${esc(m.name)}</a>`).join("");
   $("p-week").hidden=tab!=="week";$("p-co").hidden=tab!=="co";
   $("t-week").setAttribute("aria-selected",tab==="week");$("t-co").setAttribute("aria-selected",tab==="co");
