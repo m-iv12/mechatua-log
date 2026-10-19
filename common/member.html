@@ -95,7 +95,8 @@ h1{margin:0;font-family:var(--font-body);font-weight:700;font-size:clamp(1.3rem,
 .dl-item{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:10px;align-items:center;text-align:left;
   border:0;border-top:1px dashed var(--memo-d);background:transparent;padding:6px 0 3px;min-width:0}
 .dl-item:first-of-type{border-top:0}
-.dl-left{grid-row:1 / 3;font-family:var(--font-label);font-weight:600;font-size:.85rem;color:var(--on-main);background:var(--main);padding:3px 8px 3px 8px;white-space:nowrap;
+.dl-left{grid-row:1 / 3;font-family:var(--font-label);font-weight:600;font-size:.85rem;color:var(--on-main);background:var(--main);padding:3px 4px;white-space:nowrap;
+  width:5.6em;text-align:center;   /* 「あと6日」「あと32日」で幅が変わらないよう固定 */
   clip-path:polygon(0 0,100% 0,100% 100%,0 100%);border-radius:3px}
 .dl-title{font-size:.88rem;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dl-date{font-size:.78rem;color:var(--ink-soft);font-variant-numeric:tabular-nums}
