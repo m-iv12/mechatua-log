@@ -390,7 +390,26 @@ def merge(own, partners, own_name):
             ov = min(pe, oe) - max(ps, os_)
             if ov > best_ov:
                 best, best_ov = o, ov
-        if best and best_ov >= min(min_overlap, (pe - ps) / 2):
+        manual_hit = None
+        if p.get("source") == "manual":
+            # 手動で登録した他枠は「一緒の配信」と分かっているので、重なりが短くても付ける。
+            # 例：本人が先に始めて相手が後から合流した、相手の枠が本人の終了後も続いた など。
+            # 重なりがない場合も、前後60分以内に本人の枠があればそこに付ける
+            if best and best_ov > timedelta(0):
+                manual_hit = best
+            else:
+                gap_best, gap_min = None, timedelta(minutes=60)
+                for o in items.values():
+                    if not o.get("own"):
+                        continue
+                    os_, oe = span(o)
+                    gap = max(os_ - pe, ps - oe)
+                    if timedelta(0) <= gap <= gap_min:
+                        gap_best, gap_min = o, gap
+                manual_hit = gap_best
+        if manual_hit is not None:
+            manual_hit["collabs"].append({"channel": p["channel"], "title": p["title"], "url": p["url"], "manual": True})
+        elif best and best_ov >= min(min_overlap, (pe - ps) / 2):
             if not is_related(best, p, kw):
                 continue                                  # 時間は重なるが、一緒の配信だと確認できない
             best["collabs"].append({"channel": p["channel"], "title": p["title"], "url": p["url"]})
