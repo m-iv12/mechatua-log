@@ -246,7 +246,7 @@ async function load(){
   if(missing.length){$("err").hidden=false;$("err").textContent="読み込めなかったページ："+missing.join("、")}
   M=res.filter(r=>r.cfg&&r.st).map((r,i)=>{
     const c=r.cfg,t=Object.assign({},DEFAULT,c.theme||{}),kw=c.collab_keywords||[];
-    return {i,repo:r.m.repo,unit:r.m.unit,name:c.name||r.m.repo,short:kw[2]||c.name,   // 省略表記は名字（collab_keywords の3つ目）
+    return {i,repo:r.m.repo,unit:r.m.unit,name:c.name||r.m.repo,short:kw[2]||c.name,kw,   // 省略表記は名字（collab_keywords の3つ目）
       c:t.ev,ci:t["ev-ink"]||"#fff",main:t.main,streams:r.st};
   });
   build();
@@ -278,10 +278,35 @@ function build(){
 }
 // ゲーム名の書き方の違いをそろえる（空白・大文字小文字・よくある別表記）
 const GAME_ALIAS={ow:["ow","ow2","オーバーウォッチ","オーバーウォッチ2","overwatch","overwatch2"],lol:["lol","leagueoflegends","リーグオブレジェンド"],
-  valorant:["valorant","valo","ヴァロ","ヴァロラント"],apex:["apex","apexlegends","エーペックス"]};
+  valorant:["valorant","valo","ヴァロ","ヴァロラント"],apex:["apex","apexlegends","エーペックス"],amongus:["amongus","アモアス","アモングアス"]};
 const SOLO=new Set(["雑談","その他","歌枠","作業","朝活","asmr","お絵描き","重大発表"].map(g=>g.toLowerCase()));
 function gameKey(g){const k=String(g||"").replace(/[\s・:：]/g,"").toLowerCase();
-  for(const [c,ws] of Object.entries(GAME_ALIAS))if(ws.includes(k))return c;return k}
+  for(const [c,ws] of Object.entries(GAME_ALIAS))if(ws.includes(k))return c;
+  // 「新春アモアス」「APEXランク」のように別表記を含む場合（4文字以上の表記だけ）
+  for(const [c,ws] of Object.entries(GAME_ALIAS))if(ws.some(w=>w.length>=4&&k.includes(w)))return c;
+  return k}
+// 2つの枠が本当に一緒の配信かを、タイトルから判断する
+//  ・どちらかのタイトルに、相手メンバーの名前（フルネーム・名字・下の名前）がある
+//  ・同じゲームで、どちらかのタイトルにグループを指す語（MECHATU-A・めちゃつえー・Dytica・Oriens・同期・男子・皆さん など）がある
+//  ・同じゲームで、両方のタイトルに w/・with・コラボ・フルパ などがある
+const GROUP=/MECHATU|めちゃつえ|メカツア|Dytica|ディティカ|Oriens|オリエンス|同期|男子|メンズ|全員|皆さん|みんな/i;
+const CUE=/w\s*[\/／]|ｗ\s*[\/／]|\bwith\b|コラボ|フルパ|大会|カスタム|スクリム|合同|杯|[#＃](?![0-9０-９])/i;
+const body=t=>String(t||"").replace(/【[^】]*】\s*$/,"");   // 末尾の【自分の名前/にじさんじ】は除く
+function nameRe(m){
+  if(!m._re){const K="ァ-ヺー",J="一-龥々";
+    const ws=(m.kw||[m.name]).filter(Boolean).map(w=>{let p=w.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+      if(/^[ァ-ヺー]/.test(w))p=`(?<![${K}])`+p;else if(/^[一-龥々]/.test(w))p=`(?<![${J}])`+p;
+      if(/[ァ-ヺー]$/.test(w))p+=`(?![${K}])`;else if(/[一-龥々]$/.test(w))p+=`(?![${J}])`;return p});
+    m._re=new RegExp(ws.join("|"),"i")}
+  return m._re;
+}
+function related(a,b){
+  const ma=a.m||a.repoM,mb=b.m||b.repoM;
+  if(ma&&mb&&ma!==mb&&(nameRe(mb).test(body(a.title))||nameRe(ma).test(body(b.title))))return true;
+  if(gameKey(a.game)!==gameKey(b.game))return false;
+  const ta=body(a.title),tb=body(b.title);
+  return GROUP.test(ta)||GROUP.test(tb)||(CUE.test(ta)&&CUE.test(tb));
+}
 function namesIn(title){
   const t=String(title||"");
   return M.filter(m=>t.includes(m.name));
@@ -295,14 +320,16 @@ function buildEvents(){
   entries.forEach((x,i)=>{(byId[x.id]=byId[x.id]||[]).push(i)});
   entries.forEach((x,i)=>{
     for(const j of byId[x.id])union(i,j);
-    for(const c of x.co)if(c.id&&byId[c.id])for(const j of byId[c.id])union(i,j);
+    // 各ページの判定は概要欄の名前でも当たる（ユニットメンバーのリンク一覧など）ため、タイトルで裏付けが取れるときだけつなぐ
+    for(const c of x.co)if(c.id&&byId[c.id])for(const j of byId[c.id])if(related(x,entries[j]))union(i,j);
   });
   // 各ページのコラボ判定はタイトル・概要欄の名前が頼りなので、名前を書かないコラボ（「w/ めちゃつえー」など）は漏れる。
-  // そこで、メンバー同士で「同じゲーム」「開始が15分以内」「30分以上重なる」本人の枠も同じコラボとみなす
+  // そこで、メンバー同士で「同じゲーム」「開始が15分以内」「30分以上重なる」「タイトルで裏付けが取れる（related）」本人の枠も同じコラボとみなす
+  // （裏付けを求めるのは、APEX のソロランクなどが偶然同じ時間に始まるのを除くため）
   const own=entries.map((x,i)=>({x,i,g:gameKey(x.game)})).filter(o=>o.x.own&&o.x.st!=="upcoming"&&o.g&&!SOLO.has(o.g)).sort((a,b)=>a.x.s-b.x.s);
   for(let a=0;a<own.length;a++)for(let b=a+1;b<own.length&&own[b].x.s-own[a].x.s<=15*6e4;b++){
     const A=own[a],B=own[b];
-    if(A.x.m!==B.x.m&&A.g===B.g&&Math.min(A.x.e,B.x.e)-Math.max(A.x.s,B.x.s)>=30*6e4)union(A.i,B.i);
+    if(A.x.m!==B.x.m&&A.g===B.g&&Math.min(A.x.e,B.x.e)-Math.max(A.x.s,B.x.s)>=30*6e4&&related(A.x,B.x))union(A.i,B.i);
   }
   const groups={};
   entries.forEach((x,i)=>{(groups[find(i)]=groups[find(i)]||[]).push(x)});
@@ -411,9 +438,9 @@ function renderCo(){
     const d=new Date(e.s),mon=`${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}`;
     if(mon!==lastMon){h+=`<p class="mon">${mon}</p>`;lastMon=mon}
     // 見出しはゲーム名。人によって書き方が違う（OW／オーバーウォッチ など）ので、いちばん多い書き方を1つだけ出す
-    const gc={};for(const x of e.entries)if((x.own||x.shared)&&x.game){const k=gameKey(x.game);(gc[k]=gc[k]||{n:0,g:x.game}).n++}
+    const gc={};for(const x of e.entries)if((x.own||x.shared)&&x.game){const k=gameKey(x.game);const o=(gc[k]=gc[k]||{n:0,v:{}});o.n++;o.v[x.game]=(o.v[x.game]||0)+1}
     const top=Object.values(gc).sort((a,b)=>b.n-a.n)[0];
-    const head=top?top.g:cleanTitle((e.entries.find(x=>x.own)||e.entries[0]).title);
+    const head=top?Object.entries(top.v).sort((a,b)=>b[1]-a[1])[0][0]:cleanTitle((e.entries.find(x=>x.own)||e.entries[0]).title);
     const mem=e.members.map(m=>{const x=e.own.get(m);return `<span class="chip${x?"":" nf"}" style="--c:${m.c};--ci:${m.ci}" title="${x?"本人の枠あり":"本人の枠なし"}">${esc(m.short)}</span>`}).join("");
     const th=e.members.filter(m=>e.own.get(m)).map(m=>{const x=e.own.get(m);
       return `<a href="${esc(x.url)}" target="_blank" rel="noopener" style="--c:${m.c}">${x.thumb?`<img src="${esc(x.thumb)}" alt="" loading="lazy">`:`<i class="ph"></i>`}<span><b>${esc(m.short)}</b><em>${esc(cleanTitle(x.title))}</em></span></a>`}).join("");
