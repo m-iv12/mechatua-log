@@ -14,8 +14,12 @@
 /* 8人分のページ（同じ m-iv12.github.io 内）の streams.json / config.json を読み込んで並べる。
    メンバーの色は各ページの config.json の theme から取る */
 :root{
-  --desk:#eef0f5; --board:#dde2ea; --paper:#ffffff; --grid:#eef1f6; --grid-2:#dfe4ec;
-  --ink:#3d4458; --ink-soft:#646b80; --muted:#959bab; --ui:#6b7488; --ui-d:#525a6d; --ui-l:#e6e9f0;
+  /* 個人ページと同じ「机に置いたクリップボード」の雰囲気。8人の色が並ぶので、土台は淡いラベンダーグレー */
+  --desk:#e7e4ef; --board:#d4d0e2; --paper:#ffffff; --grid:#eeebf4; --grid-2:#dedaea;
+  --ink:#45405c; --ink-soft:#6b6684; --muted:#9b97ae; --ui:#7b75a0; --ui-d:#5f5983; --ui-l:#ebe8f3;
+  --memo:#fbf5e2; --memo-d:#e9dcb0; --clip:#c3c6cd; --clip-d:#a9adb6;
+  --grid-bg:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  --tape:repeating-linear-gradient(90deg,#c9c4dc 0 8px,#b9b3d2 8px 16px);  /* 8人の色に置き換わる */
   --sun:#c94a64; --sat:#4f6fb0; --now:#d4566c;
   --font-label:"Josefin Sans","Zen Maru Gothic",sans-serif;
   --font-body:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Hiragino Sans",sans-serif;
@@ -23,25 +27,38 @@
 }
 *{box-sizing:border-box}
 html,body{margin:0}
-body{background:var(--desk);color:var(--ink);font-family:var(--font-body);-webkit-text-size-adjust:100%}
+body{color:var(--ink);font-family:var(--font-body);-webkit-text-size-adjust:100%;
+  background:var(--desk) radial-gradient(rgb(255 255 255 / .6) 1.3px,transparent 1.8px) 0 0 / 18px 18px}  /* 机に小さな水玉 */
 button{font:inherit;color:inherit;cursor:pointer}
 a{color:inherit}
 .wrap{max-width:1400px;margin:0 auto;padding:calc(14px + env(safe-area-inset-top,0px)) 16px calc(24px + env(safe-area-inset-bottom,0px))}
 
 /* ---- 見出し・切り替え ---- */
 header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
-h1{margin:0;font-size:1.25rem;font-weight:700;letter-spacing:.04em;line-height:1.3}
-h1 small{display:block;font-family:var(--font-label);font-size:.62rem;font-weight:600;letter-spacing:.2em;color:var(--muted)}
-.seg{display:flex;margin-left:auto;background:var(--paper);border-radius:99px;padding:3px;box-shadow:0 1px 0 var(--grid-2)}
-.seg button{border:0;background:transparent;border-radius:99px;padding:7px 16px;font-weight:700;font-size:.88rem;color:var(--ink-soft)}
-.seg button[aria-selected="true"]{background:var(--ui);color:#fff}
+h1{margin:0;font-size:1.5rem;font-weight:700;letter-spacing:.06em;line-height:1.3}
+/* 見出しの上の「MECHATU-A」は、8人の色のマスキングテープ */
+h1 small{display:inline-block;margin:0 0 6px -4px;padding:3px 14px 2px;font-family:var(--font-label);font-size:.72rem;font-weight:600;letter-spacing:.24em;color:#fff;
+  background:var(--tape);clip-path:polygon(2% 0,100% 0,98% 50%,100% 100%,0 100%,2% 50%,0 0);transform:rotate(-2deg);text-shadow:0 1px 1px rgb(0 0 0 / .25)}
+h1 b{display:block;font-weight:700}
+/* 切り替えは個人ページと同じ「見出しタブ」 */
+.seg{display:flex;gap:4px;align-items:flex-end;margin-left:auto;align-self:flex-end}
+.seg button{border:0;background:var(--ui-l);color:var(--ink-soft);font-weight:700;font-size:.88rem;letter-spacing:.06em;
+  padding:8px 18px 6px;border-radius:8px 8px 0 0;box-shadow:inset 0 -2px 0 var(--board)}
+.seg button[aria-selected="true"]{background:var(--ui);color:#fff;box-shadow:none;padding-top:11px}
 .links{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .links a{display:inline-flex;align-items:center;gap:5px;text-decoration:none;font-size:.78rem;background:var(--paper);border-radius:99px;padding:3px 10px 3px 4px;box-shadow:0 1px 0 var(--grid-2)}
 .links a:hover{box-shadow:0 0 0 1.5px var(--c)}
 .dot{width:16px;height:16px;border-radius:50%;background:var(--c);flex:none}
 
-.card{position:relative;background:var(--board);border-radius:14px;padding:12px;margin-top:14px}
-.paper{background:var(--paper);border-radius:8px}
+/* ボード：クリップボード。.clip を付けると上に金具 */
+.card{position:relative;background:var(--board);border-radius:14px;padding:12px;margin-top:14px;box-shadow:0 2px 0 rgb(0 0 0 / .04)}
+.card.clip{padding-top:28px;margin-top:26px}
+.card.clip::before{content:"";position:absolute;left:50%;top:-12px;transform:translateX(-50%);width:140px;height:26px;border-radius:5px;
+  background:linear-gradient(var(--clip),var(--clip-d));box-shadow:0 2px 4px rgb(0 0 0 / .15);z-index:2}
+.card.clip::after{content:"";position:absolute;left:50%;top:-26px;transform:translateX(-50%);width:26px;height:26px;border-radius:50%;
+  border:5px solid var(--clip-d);box-sizing:border-box;z-index:1}
+/* 紙：方眼 */
+.paper{background:var(--paper);background-image:var(--grid-bg);background-size:16px 16px;border-radius:8px}
 
 /* ---- 週タイムライン ---- */
 .nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
@@ -56,7 +73,7 @@ h1 small{display:block;font-family:var(--font-label);font-size:.62rem;font-weigh
 .chip.live::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;animation:blink 1.4s infinite}
 @keyframes blink{50%{opacity:.25}}
 
-.tl{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:8px;background:var(--paper)}
+.tl{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:8px;background:var(--paper);box-shadow:0 1px 3px rgb(0 0 0 / .06)}
 .tl-in{min-width:820px}
 .day{border-bottom:1px solid var(--grid-2)}
 .day:last-child{border-bottom:0}
@@ -140,13 +157,20 @@ h1 small{display:block;font-family:var(--font-label);font-size:.62rem;font-weigh
 .empty{color:var(--muted);font-size:.85rem;padding:20px 0;text-align:center}
 
 /* ---- 上部：配信中・締切 ---- */
-.top-in{display:grid;gap:12px;padding:12px}
+.top-in{display:grid;gap:16px;align-items:start}
 @media (min-width:900px){.top-in{grid-template-columns:minmax(0,1fr) 340px}}
+.live-box{padding:12px;min-width:0}
+/* 締切：個人ページと同じ、マスキングテープ付きのメモ用紙 */
+.dl-box{position:relative;background:var(--memo);border-radius:4px;padding:20px 14px 10px;margin-top:8px;box-shadow:0 2px 6px rgb(0 0 0 / .1);
+  background-image:linear-gradient(rgb(233 220 176 / .45) 1px,transparent 1px),linear-gradient(90deg,rgb(233 220 176 / .45) 1px,transparent 1px);background-size:14px 14px}
+.dl-box::before{content:"";position:absolute;left:50%;top:-9px;width:110px;height:18px;transform:translateX(-50%) rotate(-2deg);
+  background:var(--tape);opacity:.85;clip-path:polygon(3% 0,100% 0,97% 50%,100% 100%,0 100%,3% 50%,0 0)}
+.dl-box .top-h{justify-content:center}
 .top-h{margin:0 0 8px;font-size:.8rem;font-weight:700;color:var(--ink-soft);display:flex;align-items:baseline;gap:8px}
 .top-h b{font-family:var(--font-label);font-size:.66rem;letter-spacing:.16em;color:var(--now)}
 .dl-box .top-h b{color:var(--ui)}
-.lv{display:flex;gap:10px;overflow-x:auto;padding-bottom:2px}
-.lv a{flex:none;width:170px;text-decoration:none;color:var(--ink)}
+.lv{display:flex;gap:12px;overflow-x:auto;padding:2px 2px 6px}
+.lv a{flex:none;width:186px;text-decoration:none;color:var(--ink);background:var(--paper);padding:8px 8px 6px;border-radius:4px;box-shadow:0 2px 5px rgb(0 0 0 / .1)}  /* 写真のように白い縁 */
 .lv img,.lv .ph{display:block;width:170px;aspect-ratio:16/9;object-fit:cover;border-radius:5px;border-bottom:3px solid var(--c);background:var(--grid)}
 .lv .who{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:.72rem;color:var(--ink-soft)}
 .lv .who .chip{font-size:.68rem;padding:1px 8px}
@@ -155,15 +179,15 @@ h1 small{display:block;font-family:var(--font-label);font-size:.62rem;font-weigh
 .lv a.maybe img,.lv a.maybe .ph{opacity:.55}
 .lv a.maybe .who::after{content:"確認待ち";font-size:.64rem;color:var(--muted)}
 .none{margin:0;font-size:.8rem;color:var(--muted)}
-.dl{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;align-items:center;padding:6px 0;border-top:1px dashed var(--grid-2);text-decoration:none;color:var(--ink)}
+.dl{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;align-items:center;padding:6px 0;border-top:1px dashed var(--memo-d);text-decoration:none;color:var(--ink)}
 .dl:first-child{border-top:0;padding-top:0}
-.dl .left{grid-row:1 / 3;font-weight:700;font-size:.78rem;background:var(--ui);color:#fff;border-radius:4px;padding:3px 8px;white-space:nowrap}
+.dl .left{grid-row:1 / 3;font-weight:700;font-size:.78rem;background:var(--ui);color:#fff;border-radius:3px;padding:3px 4px;white-space:nowrap;width:5.6em;text-align:center}  /* 幅を固定 */
 .dl .ttl{font-size:.84rem;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dl .sub{display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:.72rem;color:var(--ink-soft)}
 .dl .sub .chip{font-size:.64rem;padding:0 6px}
 .dl .all{background:var(--paper);color:var(--ink);box-shadow:inset 0 0 0 1px var(--ui)}
 .dl:hover .ttl{text-decoration:underline}
-@media (max-width:640px){.lv a,.lv img,.lv .ph{width:150px}}
+@media (max-width:640px){.lv a{width:162px}.lv img,.lv .ph{width:146px}}
 
 /* ---- 詳細 ---- */
 .backdrop{position:fixed;inset:0;background:rgb(40 46 60 / .35);z-index:20}
@@ -198,7 +222,7 @@ h1 small{display:block;font-family:var(--font-label);font-size:.62rem;font-weigh
 <body>
 <div class="wrap">
   <header>
-    <h1><small>MECHATU-A</small>配信スケジュール</h1>
+    <h1><small>MECHATU-A</small><b>配信スケジュール</b></h1>
     <div class="seg" role="tablist">
       <button role="tab" id="t-week" aria-selected="true">週タイムライン</button>
       <button role="tab" id="t-co" aria-selected="false">コラボ</button>
@@ -208,13 +232,13 @@ h1 small{display:block;font-family:var(--font-label);font-size:.62rem;font-weigh
   <p class="err" id="err" hidden></p>
 
   <section class="card top" id="top">
-    <div class="paper top-in">
-      <div class="live-box"><p class="top-h"><b>LIVE</b>配信中</p><div class="lv" id="live"></div></div>
+    <div class="top-in">
+      <div class="paper live-box"><p class="top-h"><b>LIVE</b>配信中</p><div class="lv" id="live"></div></div>
       <div class="dl-box"><p class="top-h"><b>DEADLINE</b>締切が近いもの</p><div id="dls"></div></div>
     </div>
   </section>
 
-  <section class="card" id="p-week">
+  <section class="card clip" id="p-week">
     <div class="nav">
       <button class="round" id="prev" aria-label="前の週"><svg viewBox="0 0 16 16"><path d="M10 3 5 8l5 5"/></svg></button>
       <span class="wk-label" id="wk-label"></span>
@@ -237,7 +261,7 @@ h1 small{display:block;font-family:var(--font-label);font-size:.62rem;font-weigh
     </div>
     <div class="co-grid">
       <div class="card side"><div class="paper side" id="counts"></div></div>
-      <div class="card"><div class="paper list" id="list"></div></div>
+      <div class="card clip"><div class="paper list" id="list"></div></div>
     </div>
   </section>
 </div>
@@ -551,6 +575,8 @@ function renderTop(){
 // ---------- 画面の切り替え ----------
 let tab="week";
 function render(){
+  // マスキングテープの柄：8人のメインカラーを順に並べたストライプ
+  if(M.length)document.documentElement.style.setProperty("--tape","repeating-linear-gradient(90deg,"+M.map((m,i)=>`${m.main} ${i*8}px ${(i+1)*8}px`).join(",")+")");
   $("links").innerHTML=M.map(m=>`<a href="${BASE+m.repo}/" style="--c:${m.c}"><i class="dot"></i>${esc(m.name)}</a>`).join("");
   $("p-week").hidden=tab!=="week";$("p-co").hidden=tab!=="co";
   $("t-week").setAttribute("aria-selected",tab==="week");$("t-co").setAttribute("aria-selected",tab==="co");
