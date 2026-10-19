@@ -186,7 +186,7 @@ h1 small{display:block;font-family:var(--font-label);font-size:.62rem;font-weigh
     <div class="tl"><div class="tl-in" id="tl"></div></div>
     <div class="legend">
       <span><i class="lg"></i>配信</span><span><i class="lg up"></i>予定</span>
-      <span><i class="lg other"></i>他の人の枠</span><span><i class="lg co"></i>メンバーとのコラボ</span>
+      <span><i class="lg other"></i>他の人の枠</span><span><i class="lg co"></i>メンバーとのコラボ</span><span>1日は朝6時〜翌朝6時で区切っています</span>
     </div>
   </section>
 
@@ -215,7 +215,8 @@ const MEMBERS=[
 ];
 const BASE="../";                       // mechatu-log から見た各リポジトリの場所
 const DEFAULT={main:"#7389b5",ev:"#6f85b2","ev-ink":"#ffffff"}; // theme がないページ（小柳ロウ版）の色
-const H=36e5, DAY=864e5, WD=["日","月","火","水","木","金","土"];
+const H=36e5, DAY=864e5, OFF=6*H,   // 週タイムラインの1日は朝6時から翌朝6時まで
+      WD=["日","月","火","水","木","金","土"];
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const sod=t=>{const d=new Date(t);d.setHours(0,0,0,0);return d.getTime()};
@@ -240,7 +241,7 @@ async function load(){
   if(missing.length){$("err").hidden=false;$("err").textContent="読み込めなかったページ："+missing.join("、")}
   M=res.filter(r=>r.cfg&&r.st).map((r,i)=>{
     const c=r.cfg,t=Object.assign({},DEFAULT,c.theme||{}),kw=c.collab_keywords||[];
-    return {i,repo:r.m.repo,unit:r.m.unit,name:c.name||r.m.repo,short:kw[kw.length-1]||c.name,
+    return {i,repo:r.m.repo,unit:r.m.unit,name:c.name||r.m.repo,short:kw[2]||c.name,   // 省略表記は名字（collab_keywords の3つ目）
       c:t.ev,ci:t["ev-ink"]||"#fff",main:t.main,streams:r.st};
   });
   build();
@@ -315,7 +316,7 @@ function buildEvents(){
 
 // ---------- 週タイムライン ----------
 function renderWeek(){
-  const ws=sow(cursor),we=addDays(ws,7),now=Date.now(),today=sod(now);
+  const ws=sow(cursor-OFF),now=Date.now(),today=sod(now-OFF);
   $("wk-label").textContent=`${new Date(ws).getFullYear()}年 ${md(ws)} – ${md(addDays(ws,6))}`;
   // 配信中
   const live=entries.filter(x=>x.own&&x.s<=now&&x.e>now&&x.st!=="upcoming");
@@ -324,10 +325,10 @@ function renderWeek(){
     (next.length?`<b style="color:var(--muted)">NEXT</b>`+next.map(x=>`<button class="chip" data-k="${entries.indexOf(x)}" style="--c:${x.m.c};--ci:${x.m.ci}">${esc(x.m.short)} ${new Date(x.s).getDate()}日 ${hm(x.s)}</button>`).join(""):"");
   let h="";
   for(let d=0;d<7;d++){
-    const d0=addDays(ws,d),d1=addDays(ws,d+1),dw=new Date(d0).getDay();
+    const dd=addDays(ws,d),d0=dd+OFF,d1=addDays(ws,d+1)+OFF,dw=new Date(dd).getDay();
     const inDay=entries.filter(x=>x.s<d1&&x.e>d0);
-    h+=`<div class="day${d0===today?" today":""}" ${d0===today?'id="today-row"':""}><div class="d-head"><span class="d-label${dw===6?" sat":dw===0?" sun":""}">${new Date(d0).getDate()}<small>${WD[dw]}</small></span><div class="scale">`;
-    for(let k=3;k<24;k+=3)h+=`<span style="left:${k/24*100}%">${k}</span>`;
+    h+=`<div class="day${dd===today?" today":""}"><div class="d-head"><span class="d-label${dw===6?" sat":dw===0?" sun":""}">${new Date(dd).getDate()}<small>${WD[dw]}</small></span><div class="scale">`;
+    for(let k=3;k<24;k+=3)h+=`<span style="left:${k/24*100}%">${(k+6)%24}</span>`;
     h+=`</div></div>`;
     const rows=M.map(m=>({m,items:inDay.filter(x=>x.m===m)}));
     const sh=inDay.filter(x=>x.shared);
@@ -339,7 +340,7 @@ function renderWeek(){
   // スマホなど横にはみ出すときは、最初だけ夕方〜夜（配信が多い時間帯）が見える位置までずらす
   const box=$("tl").parentNode;
   if(!scrolled&&box.scrollWidth>box.clientWidth){scrolled=true;const nw=$("tl").querySelector(".r-name").offsetWidth;
-    box.scrollLeft=(box.scrollWidth-nw)*(15/24)}
+    box.scrollLeft=(box.scrollWidth-nw)*(12/24)}   // 18時あたりから表示
 }
 let scrolled=false;
 function rowHTML(m,items,d0,d1,now){
@@ -444,7 +445,7 @@ $("t-week").onclick=()=>{tab="week";setHash();render()};
 $("t-co").onclick=()=>{tab="co";setHash();render()};
 $("prev").onclick=()=>{cursor=addDays(cursor,-7);renderWeek()};
 $("next").onclick=()=>{cursor=addDays(cursor,7);renderWeek()};
-$("today").onclick=()=>{cursor=Date.now();renderWeek()};
+$("today").onclick=()=>{cursor=Date.now();renderWeek()};  // cursor は実時刻。6時前なら前日扱い（sow(cursor-OFF)）
 document.addEventListener("click",ev=>{
   const b=ev.target.closest("[data-k]");if(b){openSheet(entries[+b.dataset.k]);return}
   const p=ev.target.closest("[data-m]");if(p){const r=p.dataset.m;selected.has(r)?selected.delete(r):selected.add(r);shown=40;setHash();renderCo();return}
