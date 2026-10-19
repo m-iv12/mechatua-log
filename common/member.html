@@ -649,7 +649,7 @@ function normalize(d){
       game:normGame(x.game||gameOf(x.title)),title:x.title||"",start:s,end:e,url:x.url||"https://www.youtube.com/",thumb:x.thumb||null,collabs:x.collabs||[]};
   });
   posts=(d.posts||[]).filter(x=>x.time).map((x,i)=>({id:"p"+i,kind:"post",ann:x.kind==="announce",time:T(x.time),
-    text:x.text||(x.kind==="announce"?"配信告知":"ポスト"),url:x.url||"https://x.com/"}));
+    text:x.text||(x.kind==="announce"?"配信告知":"ポスト"),body:x.body||"",url:x.url||"https://x.com/"}));
   deadlines=(d.deadlines||[]).filter(x=>x.deadline).map((x,i)=>({id:"d"+i,kind:"deadline",title:x.title||"締切",shared:!!x.shared,time:T(x.deadline),url:x.url||"https://x.com/"}));
   events=streams.concat(posts,deadlines);
 }
@@ -849,7 +849,9 @@ function openSheet(ev){
     link.href=ev.url;link.textContent="告知・販売ページを開く ↗";
   }else{
     tag.className="tag post-tag";tag.removeAttribute("style");tag.textContent=ev.ann?"配信告知":"ポスト";
-    $("sh-title").textContent=ev.text;
+    // 見出しはポストの本文の1行目（自動更新で X から取得。まだ取れていなければ「ポスト」）
+    const line=(ev.body||"").split("\n").map(t=>t.trim()).find(Boolean)||"";
+    $("sh-title").textContent=line?(line.length>60?line.slice(0,60)+"…":line):ev.text;
     dl.innerHTML=`<dt>日付</dt><dd>${md(ev.time)}</dd><dt>時刻</dt><dd>${hm(ev.time)}</dd>`;
     link.href=ev.url;link.textContent="X でポストを開く ↗";
     showTweet(ev.url,ex);

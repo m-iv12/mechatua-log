@@ -11,6 +11,7 @@
 
 環境変数 YOUTUBE_API_KEY が必要。FULL_REFRESH=1 か、config.json の since を変えると全件を取り直す。
 """
+import html
 import json
 import os
 import re
@@ -230,7 +231,7 @@ def update_own(since):
 def update_partners(since, scanned):
     cache = {} if FULL else load(PARTNER_CACHE, {})
     exclude = {video_id(x) for x in load(DATA / "collab_exclude.json", [])}
-    kw = keyword_pattern(CONFIG.get("collab_keywords", []))
+    kw = keyword_pattern(my_keywords())
     matches = lambda r: bool(kw and kw.search(r["title"] + "\n" + r.get("description", "")))
     # キーワードの条件を変えたときのため、自動で拾った分は毎回条件を当て直す
     for vid in [k for k, r in cache.items() if r.get("source") == "auto" and not matches(r)]:
@@ -251,8 +252,8 @@ def update_partners(since, scanned):
     auto_ids = set(to_fetch)
 
     # 指定チャンネル：タイトルにキーワードを含むものを、時間の重なりに関係なく取り込む（例：にじさんじ公式の MECHATU-A）
-    watch_ids = set()
-    for w in CONFIG.get("watch_channels", []):
+    watch_ids, unit_of = set(), {}
+    for w in CONFIG.get("watch_channels", []) + my_unit_channels():
         ref = w["channel"]
         name, playlist = resolve_channel(ref)
         if not playlist:
@@ -262,6 +263,8 @@ def update_partners(since, scanned):
         ids = list_uploads_matching(playlist, since, w.get("keywords", []), max_pages=None if first_time else 2)
         scanned.add(key)
         watch_ids |= set(ids)
+        if w.get("unit"):
+            unit_of.update({i: w["unit"] for i in ids})
         to_fetch += [i for i in ids if i not in cache]
         print(f"指定チャンネル {name}: 該当 {len(ids)} 件" + ("（初回のため全件）" if first_time else ""))
     include_watch_videos = CONFIG.get("watch_include_videos", True)
@@ -272,6 +275,7 @@ def update_partners(since, scanned):
     # 予定・配信中は取り直す
     pending = [k for k, v in cache.items() if v["status"] != "done"]
     pending_src = {k: cache[k].get("source") for k in pending}  # 予定・配信中の取り直しでも出どころを保つ
+    unit_of.update({k: cache[k]["unit"] for k in pending if cache[k].get("unit")})
     for k in pending:
         cache.pop(k)
     to_fetch += pending
@@ -288,6 +292,9 @@ def update_partners(since, scanned):
         elif vid in auto_ids and rec["kind"] == "stream":
             if matches(rec):
                 cache[vid] = rec
+    for vid, u in unit_of.items():
+        if vid in cache:
+            cache[vid]["unit"] = u                        # ユニットのチャンネルの動画には印を付ける（まとめページで参加者に使う）
     for vid in exclude:
         cache.pop(vid, None)
     for vid, rec in cache.items():
@@ -297,6 +304,47 @@ def update_partners(since, scanned):
     save(PARTNER_CACHE, cache)
     print(f"他チャンネル: 合計 {len(cache)} 件")
     return cache
+
+
+# ---------- メンバー内ユニット ----------
+# 3人以上などで、タイトルに個人名ではなくユニット名だけが書かれることがあるので、
+# 自分が入っているユニット名もコラボのキーワードとして扱う（Oriens・Dytica・MECHATU-A のような大きな括りは含めない）
+UNITS = {
+    "リトテツ": ["@SaikiIttetsu", "@UsamiRito"],
+    "珍走団": ["@SaikiIttetsu", "@AkagiWen", "@UsamiRito"],
+    "マナテツ調査隊": ["@SaikiIttetsu", "@HibachiMana"],
+    "サイゲツ": ["@SaikiIttetsu", "@MurakumoKagetsu"],
+    "バイト組": ["@AkagiWen", "@UsamiRito", "@HoshirubeSho", "@MurakumoKagetsu"],
+    "きゅんbro": ["@AkagiWen", "@MurakumoKagetsu"],
+    "ぎゃうるふ": ["@AkagiWen", "@KoyanagiRou"],
+    "べしゃり隊": ["@UsamiRito", "@HibachiMana"],
+    "にじヴィラン": ["@HibachiMana", "@HoshirubeSho", "@KoyanagiRou"],
+    "ぱちすたっ★": ["@HibachiMana", "@HoshirubeSho"],
+    "ぱぶぅん": ["@HibachiMana", "@HoshirubeSho", "@InamiRai"],
+    "カニハチミツ丼": ["@HibachiMana", "@KoyanagiRou", "@InamiRai"],
+    "ざぶぅん": ["@HibachiMana", "@InamiRai"],
+    "こやなみ": ["@KoyanagiRou", "@InamiRai"],
+}
+
+
+# ユニットの公式チャンネル：メンバーのページには、このチャンネルの配信・動画をすべて取り込む（キーワード不要）
+UNIT_CHANNELS = {
+    "@Oriens_HERO": {"unit": "Oriens", "members": ["@SaikiIttetsu", "@AkagiWen", "@UsamiRito", "@HibachiMana"]},
+}
+
+
+def my_unit_channels():
+    """自分が入っているユニットのチャンネルを watch_channels と同じ形で返す（keywords が空文字＝すべて）。"""
+    me = CONFIG.get("channel", "").lower()
+    return [{"channel": ch, "keywords": [""], "unit": u["unit"]}
+            for ch, u in UNIT_CHANNELS.items() if me in (m.lower() for m in u["members"])]
+
+
+def my_keywords():
+    """config.json の collab_keywords に、自分が入っているユニット名を足したもの。"""
+    me = CONFIG.get("channel", "").lower()
+    units = [u for u, members in UNITS.items() if me in (m.lower() for m in members)]
+    return list(CONFIG.get("collab_keywords", [])) + units
 
 
 # ---------- コラボの裏付け ----------
@@ -373,13 +421,15 @@ def public(rec, own_name):
     out = {k: rec.get(k) for k in keep}
     out["game"] = normalize_game(rec["game"]) if rec.get("game") else classify(rec["title"])
     out["collabs"] = rec.get("collabs", [])
+    if rec.get("unit"):
+        out["unit"] = rec["unit"]
     return out
 
 
 def merge(own, partners, own_name):
     items = {k: dict(v, collabs=[]) for k, v in own.items()}
     min_overlap = timedelta(minutes=CONFIG.get("collab_min_overlap_minutes", 30))
-    kw = keyword_pattern(CONFIG.get("collab_keywords", []))
+    kw = keyword_pattern(my_keywords())
     for p in sorted(partners.values(), key=lambda r: r["start"]):
         ps, pe = span(p)
         best, best_ov = None, timedelta(0)
@@ -446,6 +496,38 @@ def merge(own, partners, own_name):
     return sorted(out, key=lambda r: r["start"])
 
 
+# ---------- ポストの本文 ----------
+def fill_post_texts(limit=20):
+    """posts.json のポストに本文（body）がなければ、X の公式埋め込み（oEmbed、登録不要）から取って書き足す。
+    取れなかったものは次回にもう一度試す。1回に試すのは limit 件まで。"""
+    path = DATA / "posts.json"
+    posts = load(path, [])
+    changed, tried = False, 0
+    for p in posts:
+        if "body" in p or tried >= limit or "/status/" not in p.get("url", ""):
+            continue
+        tried += 1
+        url = re.sub(r"^https://(?:www\.)?x\.com/", "https://twitter.com/", p["url"].split("?")[0])
+        try:
+            req = urllib.request.Request("https://publish.twitter.com/oembed?" + urllib.parse.urlencode(
+                {"url": url, "omit_script": "1", "lang": "ja", "dnt": "true"}), headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=20) as r:
+                h = json.load(r).get("html", "")
+        except Exception as e:
+            print("ポスト本文を取得できませんでした:", p["url"], e)
+            continue
+        m = re.search(r"<p[^>]*>(.*?)</p>", h, re.S)
+        body = m.group(1) if m else ""
+        body = re.sub(r"<br\s*/?>", "\n", body)
+        body = re.sub(r"<a [^>]*>(pic\.twitter\.com/\S+|https?://t\.co/\S+)</a>", "", body)  # 画像・リンクの短縮 URL は除く
+        body = html.unescape(re.sub(r"<[^>]+>", "", body)).strip()
+        p["body"] = body
+        changed = True
+    if changed:
+        save(path, posts)
+        print(f"ポスト本文: {tried} 件を確認")
+
+
 def main():
     if not KEY:
         sys.exit("環境変数 YOUTUBE_API_KEY が設定されていません。")
@@ -468,6 +550,7 @@ def main():
     save(OUT, data)
     save(DATA / "cache_meta.json", {"since": CONFIG["since"], "channel": CONFIG["channel"], "scanned_channels": sorted(scanned)})
     print(f"表示用データ: {len(data)} 件")
+    fill_post_texts()
 
 
 if __name__ == "__main__":
