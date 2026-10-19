@@ -101,6 +101,9 @@ h1{margin:0;font-family:var(--font-body);font-weight:700;font-size:clamp(1.3rem,
 .dl-title{font-size:.88rem;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dl-date{font-size:.78rem;color:var(--ink-soft);font-variant-numeric:tabular-nums}
 .dl-item:hover .dl-title{color:var(--main-d)}
+.tw-box{margin-top:12px;min-height:40px}
+.tw-box .twitter-tweet{margin:0 auto!important}
+.tw-wait{margin:0;padding:14px 0;text-align:center;font-size:.8rem;color:var(--ink-soft)}
 .dl-all{font-style:normal;display:inline-block;margin-right:5px;padding:0 6px;border-radius:99px;font-size:.66rem;font-weight:700;vertical-align:1px;
   background:var(--paper);color:var(--ink-soft);box-shadow:inset 0 0 0 1px var(--memo-d)}
 
@@ -849,8 +852,29 @@ function openSheet(ev){
     $("sh-title").textContent=ev.text;
     dl.innerHTML=`<dt>日付</dt><dd>${md(ev.time)}</dd><dt>時刻</dt><dd>${hm(ev.time)}</dd>`;
     link.href=ev.url;link.textContent="X でポストを開く ↗";
+    showTweet(ev.url,ex);
   }
   $("backdrop").hidden=false;$("sheet").hidden=false;$("sh-close").focus();
+}
+// ポストの本文と添付画像を、X の公式の埋め込みで詳細の中に表示する（X の読み込みが必要。表示できなければリンクだけ）
+let twLoader=null;
+function loadTwitter(){
+  if(!twLoader)twLoader=new Promise((ok,ng)=>{
+    if(window.twttr&&window.twttr.widgets)return ok(window.twttr);
+    const sc=document.createElement("script");sc.src="https://platform.twitter.com/widgets.js";sc.async=true;sc.charset="utf-8";
+    sc.onload=()=>window.twttr&&window.twttr.ready?window.twttr.ready(ok):ng();sc.onerror=()=>{twLoader=null;ng()};document.head.appendChild(sc);
+  });
+  return twLoader;
+}
+function showTweet(url,box){
+  const m=String(url||"").match(/status\/(\d+)/);if(!m)return;
+  const token={};box._tw=token;
+  box.innerHTML=`<div class="tw-box"><p class="tw-wait">ポストを読み込み中…</p></div>`;
+  const wrap=box.querySelector(".tw-box"),fail=()=>{if(box._tw===token&&wrap.querySelector(".tw-wait"))wrap.innerHTML=`<p class="tw-wait">ここでは表示できませんでした。下のボタンから X で開いてください。</p>`};
+  const timer=setTimeout(fail,10000);
+  loadTwitter().then(tw=>tw.widgets.createTweet(m[1],wrap,{lang:"ja",dnt:true,conversation:"none",align:"center"}))
+    .then(el=>{clearTimeout(timer);if(box._tw!==token)return;if(el){const w=wrap.querySelector(".tw-wait");if(w)w.remove()}else fail()})
+    .catch(()=>{clearTimeout(timer);fail()});
 }
 function closeSheet(){$("sheet").hidden=true;if($("add-sheet").hidden)$("backdrop").hidden=true}
 
