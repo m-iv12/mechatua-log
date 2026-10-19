@@ -278,9 +278,10 @@ function build(){
 }
 // ゲーム名の書き方の違いをそろえる（空白・大文字小文字・よくある別表記）
 const GAME_ALIAS={ow:["ow","ow2","オーバーウォッチ","オーバーウォッチ2","overwatch","overwatch2"],lol:["lol","leagueoflegends","リーグオブレジェンド"],
-  valorant:["valorant","valo","ヴァロ","ヴァロラント"],apex:["apex","apexlegends","エーペックス"],amongus:["amongus","アモアス","アモングアス"]};
+  valorant:["valorant","valo","ヴァロ","ヴァロラント"],apex:["apex","apexlegends","エーペックス"],amongus:["amongus","アモアス","アモングアス"],
+  splatoon:["スプラ","スプラ3","スプラトゥーン","スプラトゥーン3","splatoon","splatoon3"],"51":["世界のアソビ大全51","世界の遊び大全51","アソビ大全","遊び大全"]};
 const SOLO=new Set(["雑談","その他","歌枠","作業","朝活","asmr","お絵描き","重大発表"].map(g=>g.toLowerCase()));
-function gameKey(g){const k=String(g||"").replace(/[\s・:：]/g,"").toLowerCase();
+function gameKey(g){const k=String(g||"").normalize("NFKC").replace(/[\s・:：\-'’!！?？.。、,]|コラボ$/g,"").toLowerCase();
   for(const [c,ws] of Object.entries(GAME_ALIAS))if(ws.includes(k))return c;
   // 「新春アモアス」「APEXランク」のように別表記を含む場合（4文字以上の表記だけ）
   for(const [c,ws] of Object.entries(GAME_ALIAS))if(ws.some(w=>w.length>=4&&k.includes(w)))return c;
@@ -290,7 +291,7 @@ function gameKey(g){const k=String(g||"").replace(/[\s・:：]/g,"").toLowerCase
 //  ・同じゲームで、どちらかのタイトルにグループを指す語（MECHATU-A・めちゃつえー・Dytica・Oriens・同期・男子・皆さん など）がある
 //  ・同じゲームで、両方のタイトルに w/・with・コラボ・フルパ などがある
 const GROUP=/MECHATU|めちゃつえ|メカツア|Dytica|ディティカ|Oriens|オリエンス|同期|男子|メンズ|全員|皆さん|みんな/i;
-const CUE=/w\s*[\/／]|ｗ\s*[\/／]|\bwith\b|コラボ|フルパ|大会|カスタム|スクリム|合同|杯|[#＃](?![0-9０-９])/i;
+const CUE=/w\s*[\/／]|ｗ\s*[\/／]|(?<![a-z])with(?![a-z])|コラボ|フルパ|大会|カスタム|スクリム|合同|杯|[#＃](?!\s*[0-9０-９])/i;
 const body=t=>String(t||"").replace(/【[^】]*】\s*$/,"");   // 末尾の【自分の名前/にじさんじ】は除く
 function nameRe(m){
   if(!m._re){const K="ァ-ヺー",J="一-龥々";
@@ -300,13 +301,26 @@ function nameRe(m){
     m._re=new RegExp(ws.join("|"),"i")}
   return m._re;
 }
+function mentions(a,b){
+  const ma=a.m||a.repoM,mb=b.m||b.repoM;   // 末尾の【〜/にじさんじ】に参加者が並ぶこともあるのでタイトル全体を見る
+  return !!(ma&&mb&&ma!==mb&&(nameRe(mb).test(a.title)||nameRe(ma).test(b.title)));
+}
+// 時間の重なりだけで見つけた組み合わせ用（厳しめ）
 function related(a,b){
-  const ma=a.m||a.repoM,mb=b.m||b.repoM;
-  if(ma&&mb&&ma!==mb&&(nameRe(mb).test(body(a.title))||nameRe(ma).test(body(b.title))))return true;
-  if(gameKey(a.game)!==gameKey(b.game))return false;
+  if(mentions(a,b))return true;
+  if(!sameGame(a,b))return false;
   const ta=body(a.title),tb=body(b.title);
   return GROUP.test(ta)||GROUP.test(tb)||(CUE.test(ta)&&CUE.test(tb));
 }
+// 各ページが「コラボ相手の枠」としてつないだ組み合わせ用（各ページの fetch_streams.py と同じ条件）
+function relatedLink(a,b){
+  if(mentions(a,b)||sameGame(a,b))return true;
+  const ta=a.title,tb=b.title;
+  return GROUP.test(ta)||GROUP.test(tb)||CUE.test(ta)||CUE.test(tb);
+}
+// 同じゲームか。片方がもう片方を含む場合も同じとみなす（マリオカート8 と マリオカート8DX など）
+function sameGame(a,b){const ka=gameKey(a.game),kb=gameKey(b.game);if(!ka||!kb||ka==="その他"||ka==="雑談")return false;
+  return ka===kb||(Math.min(ka.length,kb.length)>=4&&(ka.startsWith(kb)||kb.startsWith(ka)))}
 function namesIn(title){
   const t=String(title||"");
   return M.filter(m=>t.includes(m.name));
@@ -321,7 +335,7 @@ function buildEvents(){
   entries.forEach((x,i)=>{
     for(const j of byId[x.id])union(i,j);
     // 各ページの判定は概要欄の名前でも当たる（ユニットメンバーのリンク一覧など）ため、タイトルで裏付けが取れるときだけつなぐ
-    for(const c of x.co)if(c.id&&byId[c.id])for(const j of byId[c.id])if(related(x,entries[j]))union(i,j);
+    for(const c of x.co)if(c.id&&byId[c.id])for(const j of byId[c.id])if(relatedLink(x,entries[j]))union(i,j);
   });
   // 各ページのコラボ判定はタイトル・概要欄の名前が頼りなので、名前を書かないコラボ（「w/ めちゃつえー」など）は漏れる。
   // そこで、メンバー同士で「同じゲーム」「開始が15分以内」「30分以上重なる」「タイトルで裏付けが取れる（related）」本人の枠も同じコラボとみなす
@@ -329,7 +343,7 @@ function buildEvents(){
   const own=entries.map((x,i)=>({x,i,g:gameKey(x.game)})).filter(o=>o.x.own&&o.x.st!=="upcoming"&&o.g&&!SOLO.has(o.g)).sort((a,b)=>a.x.s-b.x.s);
   for(let a=0;a<own.length;a++)for(let b=a+1;b<own.length&&own[b].x.s-own[a].x.s<=15*6e4;b++){
     const A=own[a],B=own[b];
-    if(A.x.m!==B.x.m&&A.g===B.g&&Math.min(A.x.e,B.x.e)-Math.max(A.x.s,B.x.s)>=30*6e4&&related(A.x,B.x))union(A.i,B.i);
+    if(A.x.m!==B.x.m&&sameGame(A.x,B.x)&&Math.min(A.x.e,B.x.e)-Math.max(A.x.s,B.x.s)>=30*6e4&&related(A.x,B.x))union(A.i,B.i);
   }
   const groups={};
   entries.forEach((x,i)=>{(groups[find(i)]=groups[find(i)]||[]).push(x)});
