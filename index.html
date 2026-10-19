@@ -85,20 +85,14 @@ h1 b{display:block;font-weight:700}
 .pk-head b{font-family:var(--font-label);font-size:1.1rem;font-weight:600;letter-spacing:.06em;color:var(--ink)}
 .pk-head .round:disabled{opacity:.3;cursor:default}
 .pk-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
-.pk-grid.weeks{grid-template-columns:1fr}
-.pk-m{display:flex;flex-direction:column;align-items:center;gap:1px;border:1px solid var(--grid-2);background:var(--grid);color:var(--muted);border-radius:8px;padding:7px 2px}
+.pk-m{display:flex;flex-direction:column;align-items:center;gap:1px;border:1px solid var(--grid-2);background:var(--grid);color:var(--muted);border-radius:8px;padding:10px 2px}
 .pk-m b{font-size:.9rem}
 .pk-m small{font-family:var(--font-label);font-size:.68rem;font-variant-numeric:tabular-nums}
 .pk-m.has{background:var(--ui-l);color:var(--ink);border-color:var(--grid-2)}
 .pk-m.now{box-shadow:inset 0 0 0 2px var(--now)}
 .pk-m.cur{background:var(--ui);color:#fff;border-color:var(--ui)}
 .pk-m:hover{border-color:var(--ui)}
-.weeks .pk-m{flex-direction:row;justify-content:space-between;padding:8px 12px}
-.weeks .pk-m b{font-family:var(--font-label);font-weight:600}
-#pk-title.back-m{cursor:pointer;border-bottom:1px dashed var(--grid-2)}
-#pk-title.back-m:hover{color:var(--ui-d)}
 @media (max-width:640px){.wk-pick{min-width:0;padding:3px 4px}.wk-label{font-size:1rem}}
-.pk-note{margin:0;font-size:.7rem;color:var(--muted);text-align:center}
 @media (max-width:640px){body.page-co .links{display:none}}   /* スマホのコラボ記録では各メンバーへのリンクを出さない（ホームへ戻るのみ） */
 .now-box{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-left:auto;font-size:.8rem;color:var(--ink-soft)}
 .now-box b{font-family:var(--font-label);font-size:.66rem;letter-spacing:.16em;color:var(--now)}
@@ -278,7 +272,7 @@ h1 b{display:block;font-weight:700}
   <section class="card clip" id="p-week">
     <div class="nav">
       <button class="round" id="prev" aria-label="前の週"><svg viewBox="0 0 16 16"><path d="M10 3 5 8l5 5"/></svg></button>
-      <button type="button" class="wk-pick" id="wk-btn" aria-haspopup="dialog" aria-expanded="false" title="月と週を選んで移動"><span class="wk-label" id="wk-label"></span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></button>
+      <button type="button" class="wk-pick" id="wk-btn" aria-haspopup="dialog" aria-expanded="false" title="月を選んで移動"><span class="wk-label" id="wk-label"></span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></button>
       <button class="round" id="next" aria-label="次の週"><svg viewBox="0 0 16 16"><path d="M6 3l5 5-5 5"/></svg></button>
       <button class="ghost" id="today">今週</button>
       <div class="now-box" id="now-box"></div>
@@ -303,15 +297,14 @@ h1 b{display:block;font-weight:700}
   </section>
 </div>
 
-<!-- 週を選ぶ小窓：年→月→週の順に選ぶ（個人ページの月選択と同じ見た目） -->
-<div class="picker" id="picker" hidden role="dialog" aria-label="週を選ぶ">
+<!-- 月を選ぶ小窓（個人ページの月選択と同じ見た目）。月を押すとその月の最初の週へ -->
+<div class="picker" id="picker" hidden role="dialog" aria-label="月を選ぶ">
   <div class="pk-head">
     <button type="button" class="round" id="pk-prev" aria-label="前へ"><svg viewBox="0 0 16 16"><path d="M10 3 5 8l5 5"/></svg></button>
-    <b id="pk-title" role="button" tabindex="0"></b>
+    <b id="pk-title"></b>
     <button type="button" class="round" id="pk-next" aria-label="次へ"><svg viewBox="0 0 16 16"><path d="M6 3l5 5-5 5"/></svg></button>
   </div>
   <div class="pk-grid" id="pk-grid"></div>
-  <p class="pk-note" id="pk-note"></p>
 </div>
 
 <div class="backdrop" id="bd" hidden></div>
@@ -658,46 +651,30 @@ function setHash(){if(tab!=="co")return;const h=[...selected].map(r=>r.replace(/
   history.replaceState(null,"",h?"#"+h:location.pathname)}
 function readHash(){if(tab!=="co")return;const h=location.hash.slice(1).replace(/^co\/?/,"");if(h)h.split("+").forEach(s=>selected.add(s+"-log"))}
 
-// ---------- 週を選ぶ小窓 ----------
-let pkYear=0,pkMonth=null;   // pkMonth が null なら月を選ぶ画面、数字ならその月の週を選ぶ画面
+// ---------- 月を選ぶ小窓：月を押すとその月の最初の週（1日を含む週）へ移動 ----------
+let pkYear=0;
 const FIRST_YEAR=2023;
-const streamMs=(s0,s1)=>entries.reduce((a,x)=>x.own&&x.st!=="upcoming"&&x.s>=s0&&x.s<s1?a+(x.e-x.s):a,0);
+const hasStream=(s0,s1)=>entries.some(x=>x.own&&x.st!=="upcoming"&&x.s>=s0&&x.s<s1);
 function renderPicker(){
-  const now=Date.now(),cw=sow(cursor-OFF),tw=sow(now-OFF),grid=$("pk-grid");
-  if(pkMonth===null){
-    const y1=new Date(now).getFullYear();pkYear=Math.min(Math.max(pkYear,FIRST_YEAR),y1);
-    $("pk-title").textContent=pkYear+"年";$("pk-prev").disabled=pkYear<=FIRST_YEAR;$("pk-next").disabled=pkYear>=y1;
-    grid.className="pk-grid";$("pk-note").textContent="数字は8人の配信時間の合計";$("pk-title").classList.remove("back-m");
-    const c=new Date(cw),t=new Date(now);
-    grid.innerHTML=Array.from({length:12},(_,i)=>{const ms=streamMs(new Date(pkYear,i,1).getTime(),new Date(pkYear,i+1,1).getTime());
-      const cls=(ms?" has":"")+(c.getFullYear()===pkYear&&c.getMonth()===i?" cur":"")+(t.getFullYear()===pkYear&&t.getMonth()===i?" now":"");
-      return `<button type="button" class="pk-m${cls}" data-pm="${i}"><b>${i+1}月</b><small>${ms?hrs(ms)+"h":"—"}</small></button>`}).join("");
-  }else{
-    $("pk-title").textContent=`${pkYear}年${pkMonth+1}月`;$("pk-prev").disabled=false;$("pk-next").disabled=false;
-    grid.className="pk-grid weeks";$("pk-note").textContent="週を選ぶと移動します。年月を押すと月の選択に戻ります";$("pk-title").classList.add("back-m");
-    const m0=new Date(pkYear,pkMonth,1).getTime(),m1=new Date(pkYear,pkMonth+1,1).getTime();let h="";
-    for(let w=sow(m0);w<m1;w=addDays(w,7)){const ms=streamMs(w+OFF,addDays(w,7)+OFF);
-      const cls=(ms?" has":"")+(w===cw?" cur":"")+(w===tw?" now":"");
-      h+=`<button type="button" class="pk-m${cls}" data-pw="${w}"><b>${md(w)} – ${md(addDays(w,6))}</b><small>${ms?hrs(ms)+"h":"—"}</small></button>`}
-    grid.innerHTML=h;
-  }
+  const now=Date.now(),y1=new Date(now).getFullYear();pkYear=Math.min(Math.max(pkYear,FIRST_YEAR),y1);
+  $("pk-title").textContent=pkYear+"年";$("pk-prev").disabled=pkYear<=FIRST_YEAR;$("pk-next").disabled=pkYear>=y1;
+  const c=new Date(sow(cursor-OFF)),t=new Date(now);
+  $("pk-grid").innerHTML=Array.from({length:12},(_,i)=>{
+    const cls=(hasStream(new Date(pkYear,i,1).getTime(),new Date(pkYear,i+1,1).getTime())?" has":"")+(c.getFullYear()===pkYear&&c.getMonth()===i?" cur":"")+(t.getFullYear()===pkYear&&t.getMonth()===i?" now":"");
+    return `<button type="button" class="pk-m${cls}" data-pm="${i}"><b>${i+1}月</b></button>`}).join("");
 }
 function openPicker(){
-  const c=new Date(sow(cursor-OFF));pkYear=c.getFullYear();pkMonth=null;renderPicker();
+  pkYear=new Date(sow(cursor-OFF)).getFullYear();renderPicker();
   const pk=$("picker"),btn=$("wk-btn");pk.hidden=false;btn.setAttribute("aria-expanded","true");
   const r=btn.getBoundingClientRect(),w=pk.offsetWidth,h=pk.offsetHeight;
   pk.style.left=Math.max(8,Math.min(r.left,innerWidth-w-8))+"px";pk.style.top=Math.max(8,Math.min(r.bottom+8,innerHeight-h-8))+"px";
 }
 function closePicker(){$("picker").hidden=true;$("wk-btn").setAttribute("aria-expanded","false")}
 $("wk-btn").onclick=e=>{e.stopPropagation();$("picker").hidden?openPicker():closePicker()};
-$("pk-title").onclick=()=>{if(pkMonth!==null){pkMonth=null;renderPicker()}};
-$("pk-title").onkeydown=e=>{if(e.key==="Enter"&&pkMonth!==null){pkMonth=null;renderPicker()}};
-$("pk-prev").onclick=()=>{if(pkMonth===null)pkYear--;else if(--pkMonth<0){pkMonth=11;pkYear--}renderPicker()};
-$("pk-next").onclick=()=>{if(pkMonth===null)pkYear++;else if(++pkMonth>11){pkMonth=0;pkYear++}renderPicker()};
-$("pk-grid").addEventListener("click",e=>{
-  const m=e.target.closest("[data-pm]");if(m){pkMonth=+m.dataset.pm;renderPicker();return}
-  const w=e.target.closest("[data-pw]");if(w){cursor=+w.dataset.pw+12*H;closePicker();renderWeek()}
-});
+$("pk-prev").onclick=()=>{pkYear--;renderPicker()};
+$("pk-next").onclick=()=>{pkYear++;renderPicker()};
+$("pk-grid").addEventListener("click",e=>{const m=e.target.closest("[data-pm]");if(!m)return;
+  cursor=new Date(pkYear,+m.dataset.pm,1,12).getTime();closePicker();renderWeek()});
 document.addEventListener("click",e=>{if(!e.target.isConnected)return;   // 小窓の中を描き直した直後のクリックは無視
   if(!$("picker").hidden&&!e.target.closest("#picker,#wk-btn"))closePicker()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closePicker()});
