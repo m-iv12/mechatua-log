@@ -359,7 +359,8 @@ function build(){
   const now=Date.now();
   entries=[];
   const count={};
-  for(const m of M)for(const x of m.streams)count[x.id]=(count[x.id]||0)+1;
+  const ownIds=new Set();
+  for(const m of M)for(const x of m.streams){count[x.id]=(count[x.id]||0)+1;if(x.own!==false)ownIds.add(x.id)}
   for(const m of M){
     for(const x of m.streams){
       if(!x.start)continue;
@@ -368,7 +369,8 @@ function build(){
       if(!e)e=st==="live"?Math.max(now,s+30*6e4):s+2*H;
       const own=x.own!==false;
       // 本人の枠でないもの：3つ以上のページに同じ動画がある、またはメンバー2人以上の名前がタイトルにある → 「公式・その他」の行
-      const shared=!own&&(count[x.id]>=3||namesIn(x.title).length>=2);
+      // メンバー本人の枠が、ほかのメンバーのページにも「他の人の枠」として入っている場合は「公式」扱いにしない（同じ枠が2回出ないように）
+      const shared=!own&&!ownIds.has(x.id)&&(count[x.id]>=3||namesIn(x.title).length>=2);
       entries.push({id:x.id,unit:x.unit||null,kind:x.kind||"stream",m:own||!shared?m:null,repoM:m,own,shared,s,e,st,title:x.title||"",url:x.url,thumb:x.thumb,game:x.game,channel:x.channel,
         co:(x.collabs||[]).map(c=>({id:vid(c.url),channel:c.channel,title:c.title,url:c.url,manual:!!c.manual}))});
     }
