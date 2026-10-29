@@ -117,11 +117,11 @@ h1{margin:0;font-family:var(--font-body);font-weight:700;font-size:clamp(1.3rem,
 .mbadges{position:absolute;left:3px;bottom:3px;max-width:calc(100% - 3px - clamp(1.4rem,6vw,2.6rem));   /* 右下の日付の数字にかからない幅 */
   z-index:2;display:flex;flex-direction:column;align-items:flex-start;gap:2px;pointer-events:none}
 .mbadges .dl-badge{position:static}
-.pl-short{display:none}
-@media (max-width:480px){.pl-more-b{display:none}}   /* スマホの月表示は「予定2」のように件数だけ */
-.mbadges .dl-badge{white-space:nowrap}
+.sp-b{display:none}
+@media (max-width:480px){.pc-b{display:none}.sp-b{display:inline-block}}   /* スマホの月表示は「締切」「予定2」のように種類と件数だけ */
+.mbadges .dl-badge{white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;padding-right:9px}
 /* スマホの月表示はマスが小さいので、タイトルではなく「予定」とだけ出す */
-@media (max-width:480px){.pl-badge{font-size:.5rem;padding:0 3px}.pl-full{display:none}.pl-short{display:inline}
+@media (max-width:480px){.pl-badge{font-size:.5rem;padding:0 3px}
   .mbadges{top:3px;bottom:auto;max-width:calc(100% - 6px)}}   /* スマホは時間数を出さないので、左上に置く */
 .tag.pl{background:var(--paper);color:var(--main-d);border:1.5px dashed var(--main)}
 .k-pl{width:14px;height:10px;border-radius:99px;border:1.5px dashed var(--main);background:var(--paper)}
@@ -472,7 +472,7 @@ h1{font-size:1rem;letter-spacing:.02em;white-space:nowrap}
 #view{flex:1;min-height:0;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden}
 .wk-head{flex:none;height:var(--wkh,50px);overflow:hidden}
 .dh{position:relative;padding:5px 2px 3px}
-.dl-tag{position:absolute;top:2px;right:1px;margin:0}
+.pl-tags .dl-tag{margin:0;padding:0;width:13px;height:9px;font-size:0}   /* スマホは列が細いので、締切も文字なしの札の形だけ */
 .pl-tags{position:absolute;top:3px;left:2px;display:flex;gap:2px}
 .pl-tag{margin:0;padding:0;width:9px;height:9px;font-size:0;border-radius:50%}   /* スマホは列が細いので、文字なしの点だけ（重なる日は点が並ぶ） */
 .pl-panel{margin-top:10px}
@@ -515,6 +515,7 @@ h1{font-size:1rem;letter-spacing:.02em;white-space:nowrap}
   .pl-more{display:block}
   /* PC：見出しの一番下に、記入したタイトルを1行で（長い分は…で省略。全文は押すと詳細に出る） */
   .pl-tags{top:auto;bottom:4px;left:4px;right:4px;flex-direction:column;gap:2px}
+  .pl-tags .dl-tag{width:auto;height:auto;font-size:.6rem;padding:1px 12px 1px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;line-height:1.4}
   .pl-tag{width:auto;height:auto;font-size:.6rem;padding:0 6px;border-radius:99px;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
   .note{display:block}
@@ -769,6 +770,13 @@ const plRange=x=>{
   if(x.mode==="dates")return mdShort(x.days[0].t)+(x.days.length>1?` ほか${x.days.length-1}日`:"");
   if(x.mode==="single")return mdShort(x.start);
   return`${mdShort(x.start)}–${mdShort(x.last,x.start)}`};
+// その日に付ける印（締切が先、予定メモが後）。締切は a〜b の時刻の範囲（週表示は朝6時区切り）で、まだ過ぎていないものだけ
+function dayItems(dd,a,b){
+  const now=Date.now();
+  const dl=deadlines.filter(x=>x.time>=a&&x.time<b&&x.time>=now).sort((p,q)=>p.time-q.time).map(x=>({kind:"dl",id:x.id,t:x.title,x}));
+  const pm=plMarks(dd);
+  return{items:dl.concat(pm.tags.map(m=>({kind:"pl",id:m.x.id,t:m.t,x:m.x}))),line:pm.line};
+}
 // その日（0:00 の時刻 d0）に付ける印。今日以降の日だけ。期間は開始日と終了日だけに印、間の日は週表示の点線のみ
 function plMarks(d0){
   if(d0+DAYMS<=Date.now())return{tags:[],line:""};
@@ -850,7 +858,7 @@ function measure(plRows=0){const v=$("view");MEAS=v?v.clientHeight:0;WKH=window.
 const OFF=6*H;
 const dayStartOf=t=>sod(t-OFF)+OFF;   // その時刻が属する「1日」の始まり（朝6時）
 function renderWeek(){
-  {const w0=sow(cursor-OFF);let rows=0;for(let i=0;i<7;i++)rows=Math.max(rows,plMarks(addDays(w0,i)).tags.length);measure(rows)}
+  {const w0=sow(cursor-OFF);let rows=0;for(let i=0;i<7;i++){const dd=addDays(w0,i);rows=Math.max(rows,dayItems(dd,dd+OFF,addDays(w0,i+1)+OFF).items.length)}measure(rows)}
   const ws=sow(cursor-OFF),we=addDays(ws,7),today=sod(Date.now()-OFF);
   const s=new Date(ws),e=new Date(addDays(ws,6));
   $("label").innerHTML=`<small>${s.getFullYear()}年</small><span class="wk-rg">${s.getMonth()+1}/${s.getDate()}–${e.getMonth()+1}/${e.getDate()}</span>`;
@@ -862,9 +870,9 @@ function renderWeek(){
     const segs=streams.filter(x=>x.end>d0&&x.start<d1);
     const tot=segs.filter(x=>!isUp(x)).reduce((acc,x)=>acc+overlap(x.start,x.end,d0,d1),0);
     const cls=(dw===6?" sat":dw===0?" sun":"")+(dd===today?" today":"");
-    head+=`<div class="dh${cls}"><span class="dd">${new Date(dd).getDate()}</span><span class="dw">${WD[dw]}</span><span class="dt">${tot?hrs(tot)+"h":""}</span>${deadlines.filter(x=>x.time>=d0&&x.time<d1&&x.time>=Date.now()).map(x=>`<button class="dl-tag" data-id="${x.id}" aria-label="締切 ${esc(x.title)}">締切</button>`).join("")}${(()=>{const pm=plMarks(dd),tg=pm.tags,show=tg.length>PL_MAX?tg.slice(0,PL_MAX-1):tg;
-      const btn=(m,txt)=>`<button class="pl-tag" data-id="${m.x.id}" aria-label="予定 ${esc(m.t)}" title="${esc(m.t)}">${esc(txt)}</button>`;
-      return(tg.length?`<span class="pl-tags">${show.map(m=>btn(m,m.t)).join("")}${tg.length>show.length?btn(tg[show.length],`ほか${tg.length-show.length}件`):""}</span>`:"")+(pm.line?`<span class="pl-line${pm.line==="mid"?"":" "+pm.line}"></span>`:"")})()}</div>`;
+    head+=`<div class="dh${cls}"><span class="dd">${new Date(dd).getDate()}</span><span class="dw">${WD[dw]}</span><span class="dt">${tot?hrs(tot)+"h":""}</span>${(()=>{const di=dayItems(dd,d0,d1),tg=di.items,show=tg.length>PL_MAX?tg.slice(0,PL_MAX-1):tg;
+      const btn=(m,txt)=>`<button class="${m.kind==="dl"?"dl-tag":"pl-tag"}" data-id="${m.id}" aria-label="${m.kind==="dl"?"締切":"予定"} ${esc(m.t)}" title="${m.kind==="dl"?"締切：":""}${esc(m.t)}">${esc(txt)}</button>`;
+      return(tg.length?`<span class="pl-tags">${show.map(m=>btn(m,m.t)).join("")}${tg.length>show.length?btn(tg[show.length],`ほか${tg.length-show.length}件`):""}</span>`:"")+(di.line?`<span class="pl-line${di.line==="mid"?"":" "+di.line}"></span>`:"")})()}</div>`;
     body+=`<div class="col${dd===today?" today":""}">`;
     segs.forEach(x=>{
       const a=Math.max(x.start,d0),b=Math.min(x.end,d1);
@@ -917,8 +925,13 @@ function renderMonth(){
     const out=d0<m0||d0>=m1;
     const dn=String(new Date(d0).getDate()).padStart(2,"0");
     h+=`<button class="mc${out?" out":""}${started.length?" has":""}${d0===today?" today":""}" data-day="${d0}" aria-label="${md(d0)}、配信${started.length}件。週表示を開く"${out?' tabindex="-1"':""}>
-      ${tiles}<span class="mn">${dn}</span>${tot?`<span class="mh">${hrs(tot)}h</span>`:""}${(()=>{const tg=plMarks(d0).tags,sh=tg.length>2?tg.slice(0,1):tg;
-      const pl=tg.length?sh.map((m,i)=>`<span class="pl-badge${i?" pl-more-b":""}"><span class="pl-full">${esc(m.t)}</span><span class="pl-short">予定${!i&&tg.length>1?tg.length:""}</span></span>`).join("")+(tg.length>sh.length?`<span class="pl-badge pl-more-b"><span class="pl-full">ほか${tg.length-sh.length}件</span></span>`:""):"",dlb=deadlines.some(x=>x.time>=d0&&x.time<d1&&x.time>=Date.now())?'<span class="dl-badge">締切</span>':"";return pl||dlb?`<span class="mbadges">${pl}${dlb}</span>`:""})()}</button>`;
+      ${tiles}<span class="mn">${dn}</span>${tot?`<span class="mh">${hrs(tot)}h</span>`:""}${(()=>{const tg=dayItems(d0,d0,d1).items;if(!tg.length)return"";
+      // PC：2つまでタイトルで（3つ以上は1つ＋ほか○件）。スマホ：「締切」「予定2」のように種類と件数だけ
+      const sh=tg.length>2?tg.slice(0,1):tg,nd=tg.filter(m=>m.kind==="dl").length,np=tg.length-nd;
+      const pcB=sh.map(m=>`<span class="${m.kind==="dl"?"dl-badge":"pl-badge"} pc-b">${esc(m.t)}</span>`).join("")
+        +(tg.length>sh.length?`<span class="${tg[1].kind==="dl"?"dl-badge":"pl-badge"} pc-b">ほか${tg.length-sh.length}件</span>`:"");
+      const spB=(nd?`<span class="dl-badge sp-b">締切${nd>1?nd:""}</span>`:"")+(np?`<span class="pl-badge sp-b">予定${np>1?np:""}</span>`:"");
+      return`<span class="mbadges">${pcB}${spB}</span>`})()}</button>`;
   }
   $("view").innerHTML=h+"</div>";
   summary(m0,m1);
