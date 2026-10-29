@@ -113,10 +113,15 @@ h1{margin:0;font-family:var(--font-body);font-weight:700;font-size:clamp(1.3rem,
 .pl-left{grid-row:1 / 3;font-family:var(--font-label);font-weight:600;font-size:.8rem;color:var(--main-d);background:var(--paper);white-space:nowrap;
   min-width:5.6em;padding:2px 5px;text-align:center;border:1.5px dashed var(--main);border-radius:3px;font-variant-numeric:tabular-nums}
 .pl-tag{margin-top:3px;border:1px dashed var(--main);background:var(--paper);color:var(--main-d);font-size:.6rem;font-weight:700;padding:0 5px;line-height:1.4;border-radius:99px}
-.pl-badge{font-size:.58rem;font-weight:700;color:var(--main-d);background:var(--paper);border:1px dashed var(--main);border-radius:99px;padding:0 5px;line-height:1.45}
-.mbadges{position:absolute;left:3px;bottom:3px;z-index:2;display:flex;flex-direction:column;align-items:flex-start;gap:2px;pointer-events:none}
+.pl-badge{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.58rem;font-weight:700;color:var(--main-d);background:var(--paper);border:1px dashed var(--main);border-radius:99px;padding:0 5px;line-height:1.45}
+.mbadges{position:absolute;left:3px;bottom:3px;max-width:calc(100% - 3px - clamp(1.4rem,6vw,2.6rem));   /* 右下の日付の数字にかからない幅 */
+  z-index:2;display:flex;flex-direction:column;align-items:flex-start;gap:2px;pointer-events:none}
 .mbadges .dl-badge{position:static}
-@media (max-width:480px){.pl-badge{font-size:.5rem;padding:0 3px}}
+.pl-short{display:none}
+.mbadges .dl-badge{white-space:nowrap}
+/* スマホの月表示はマスが小さいので、タイトルではなく「予定」とだけ出す */
+@media (max-width:480px){.pl-badge{font-size:.5rem;padding:0 3px}.pl-full{display:none}.pl-short{display:inline}
+  .mbadges{top:3px;bottom:auto;max-width:calc(100% - 6px)}}   /* スマホは時間数を出さないので、左上に置く */
 .tag.pl{background:var(--paper);color:var(--main-d);border:1.5px dashed var(--main)}
 .k-pl{width:14px;height:10px;border-radius:99px;border:1.5px dashed var(--main);background:var(--paper)}
 .dh{position:relative}
@@ -494,7 +499,9 @@ h1{font-size:1rem;letter-spacing:.02em;white-space:nowrap}
   .dl-item:not(:first-of-type){display:grid}
   .dl-item{padding:6px 0 3px}
   .pl-more{display:block}
-  .pl-tag{width:auto;height:auto;font-size:.6rem;padding:0 5px;border-radius:99px;left:2px;top:2px}
+  /* PC：見出しの一番下に、記入したタイトルを1行で（長い分は…で省略。全文は押すと詳細に出る） */
+  .pl-tag{width:auto;height:auto;font-size:.6rem;padding:0 6px;border-radius:99px;left:4px;right:4px;top:auto;bottom:4px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
   .note{display:block}
   .card{margin-top:14px;padding:26px 8px 8px}
 }
@@ -753,10 +760,10 @@ function plMarks(d0){
   const tags=[];let line="";
   for(const x of plans){
     const day=sod(d0);
-    if(x.mode==="single"&&sod(x.start)===day)tags.push({x,t:"予定"});
-    else if(x.mode==="dates"){const y=x.days.find(y=>sod(y.t)===day);if(y)tags.push({x,t:"予定",label:y.label})}
+    if(x.mode==="single"&&sod(x.start)===day)tags.push({x,t:x.title});
+    else if(x.mode==="dates"){const y=x.days.find(y=>sod(y.t)===day);if(y)tags.push({x,t:x.title+(y.label?" "+y.label:""),label:y.label})}
     else if(x.mode==="range"&&day>=sod(x.start)&&day<=sod(x.last)){
-      if(day===sod(x.start))tags.push({x,t:"予定〜"});else if(day===sod(x.last))tags.push({x,t:"〜予定"});
+      if(day===sod(x.start))tags.push({x,t:x.title+" 開始"});else if(day===sod(x.last))tags.push({x,t:x.title+" 最終日"});
       const c=day===sod(x.start)?"st":day===sod(x.last)?"en":"mid";
       line=!line||line===c?c:"mid";   // 複数の期間が重なるときは端まで引く
     }
@@ -814,9 +821,9 @@ function renderList(){
 function flags(x){return(isUp(x)?" up":"")+(x.status==="live"?" live":"")+(x.collabs.length?" co":"")+(x.own?"":" guest")}
 
 let HH=22,COLW=100;
-const WKH=56; // 週表示の見出しの高さ（px）
+let WKH=56; // 週表示の見出しの高さ（px）。PC は予定メモのタイトルを入れる分だけ高くする
 let MEAS=0;
-function measure(){const v=$("view");MEAS=v?v.clientHeight:0;
+function measure(){const v=$("view");MEAS=v?v.clientHeight:0;WKH=window.innerWidth>=900?74:56;
   // カレンダー欄の残りの高さを24等分して1時間の高さにする（最小12px）
   const avail=v?v.clientHeight-WKH-2:0;
   // 線がにじまないよう整数ピクセル（偶数）にそろえる
@@ -839,7 +846,7 @@ function renderWeek(){
     const segs=streams.filter(x=>x.end>d0&&x.start<d1);
     const tot=segs.filter(x=>!isUp(x)).reduce((acc,x)=>acc+overlap(x.start,x.end,d0,d1),0);
     const cls=(dw===6?" sat":dw===0?" sun":"")+(dd===today?" today":"");
-    head+=`<div class="dh${cls}"><span class="dd">${new Date(dd).getDate()}</span><span class="dw">${WD[dw]}</span><span class="dt">${tot?hrs(tot)+"h":""}</span>${deadlines.filter(x=>x.time>=d0&&x.time<d1&&x.time>=Date.now()).map(x=>`<button class="dl-tag" data-id="${x.id}" aria-label="締切 ${esc(x.title)}">締切</button>`).join("")}${(()=>{const pm=plMarks(dd);return pm.tags.slice(0,1).map(m=>`<button class="pl-tag" data-id="${m.x.id}" aria-label="予定 ${esc(m.x.title)}${m.label?" "+esc(m.label):""}">${m.t}</button>`).join("")+(pm.line?`<span class="pl-line${pm.line==="mid"?"":" "+pm.line}"></span>`:"")})()}</div>`;
+    head+=`<div class="dh${cls}"><span class="dd">${new Date(dd).getDate()}</span><span class="dw">${WD[dw]}</span><span class="dt">${tot?hrs(tot)+"h":""}</span>${deadlines.filter(x=>x.time>=d0&&x.time<d1&&x.time>=Date.now()).map(x=>`<button class="dl-tag" data-id="${x.id}" aria-label="締切 ${esc(x.title)}">締切</button>`).join("")}${(()=>{const pm=plMarks(dd);return pm.tags.slice(0,1).map(m=>`<button class="pl-tag" data-id="${m.x.id}" aria-label="予定 ${esc(m.t)}" title="${esc(m.t)}">${esc(m.t)}</button>`).join("")+(pm.line?`<span class="pl-line${pm.line==="mid"?"":" "+pm.line}"></span>`:"")})()}</div>`;
     body+=`<div class="col${dd===today?" today":""}">`;
     segs.forEach(x=>{
       const a=Math.max(x.start,d0),b=Math.min(x.end,d1);
@@ -892,7 +899,7 @@ function renderMonth(){
     const out=d0<m0||d0>=m1;
     const dn=String(new Date(d0).getDate()).padStart(2,"0");
     h+=`<button class="mc${out?" out":""}${started.length?" has":""}${d0===today?" today":""}" data-day="${d0}" aria-label="${md(d0)}、配信${started.length}件。週表示を開く"${out?' tabindex="-1"':""}>
-      ${tiles}<span class="mn">${dn}</span>${tot?`<span class="mh">${hrs(tot)}h</span>`:""}${(()=>{const pt=plMarks(d0).tags[0],pl=pt?`<span class="pl-badge">${pt.t}</span>`:"",dlb=deadlines.some(x=>x.time>=d0&&x.time<d1&&x.time>=Date.now())?'<span class="dl-badge">締切</span>':"";return pl||dlb?`<span class="mbadges">${pl}${dlb}</span>`:""})()}</button>`;
+      ${tiles}<span class="mn">${dn}</span>${tot?`<span class="mh">${hrs(tot)}h</span>`:""}${(()=>{const pt=plMarks(d0).tags[0],pl=pt?`<span class="pl-badge"><span class="pl-full">${esc(pt.t)}</span><span class="pl-short">予定</span></span>`:"",dlb=deadlines.some(x=>x.time>=d0&&x.time<d1&&x.time>=Date.now())?'<span class="dl-badge">締切</span>':"";return pl||dlb?`<span class="mbadges">${pl}${dlb}</span>`:""})()}</button>`;
   }
   $("view").innerHTML=h+"</div>";
   summary(m0,m1);
