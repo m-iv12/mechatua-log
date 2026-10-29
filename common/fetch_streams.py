@@ -72,6 +72,21 @@ def video_id(text):
 
 
 LEGACY = {"valo": "VALORANT", "apex": "APEX", "chat": "雑談", "other": "その他"}
+# 8人共通で同じゲームとして数える表記（空白・記号・大文字小文字・全角半角の違いは無視して、完全に一致したときだけ）
+# 「OW」が Overcooked や MADTOWN に当たらないよう、部分一致にはしない
+SAME_GAME = {
+    "OW": ["ow", "ow2", "overwatch", "overwatch2", "オーバーウォッチ", "オーバーウォッチ2"],
+    "LoL": ["lol", "leagueoflegends", "リーグオブレジェンド"],
+    "スト6": ["スト6", "ストリートファイター6", "streetfighter6", "sf6"],
+    "スプラトゥーン3": ["スプラ3", "スプラトゥーン3", "splatoon3"],
+    "マリオカート8DX": ["マリカ8dx", "マリオカート8dx", "マリオカート8デラックス", "mk8dx"],
+}
+# 末尾の回数（#1・＃２・part3 など）は外してゲーム名とする（例：MADTOWN #１ → MADTOWN）
+EP_RE = re.compile(r"\s*(?:[#＃]\s*[0-9０-９]+|part\s*[0-9０-９]+|パート[0-9０-９]+|その[0-9０-９]+|第[0-9０-９]+[回話])\s*$", re.I)
+
+
+def game_key_simple(name):
+    return re.sub(r"[\s・:：\-'’‘!！?？.。、,#＃()（）\[\]|｜/／「」『』~〜_]", "", unicodedata.normalize("NFKC", str(name)).lower())
 
 
 def normalize_game(name):
@@ -79,6 +94,15 @@ def normalize_game(name):
     if not name:
         return "その他"
     name = LEGACY.get(name, name).strip()
+    # 表示の書き方も軽くそろえる：全角の英数字→半角、連続スペース→1つ、先頭の #・＃ は外す（「！」などの記号はそのまま）
+    tidy = re.sub(r"[０-９Ａ-Ｚａ-ｚ]", lambda c: chr(ord(c.group()) - 0xFEE0), name)
+    tidy = re.sub(r"^[#＃]\s*", "", re.sub(r"[\s\u3000]+", " ", tidy)).strip()
+    name = tidy or name
+    name = EP_RE.sub("", name).strip() or name
+    key = game_key_simple(name)
+    for canon, words in SAME_GAME.items():
+        if key in words:
+            return canon
     low = name.lower()
     for canon, words in CONFIG.get("game_aliases", {}).items():
         if any(w.lower() in low for w in words):

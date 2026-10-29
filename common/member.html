@@ -658,8 +658,34 @@ let OWN="", TAIL_RE=/\s*【[^】]*にじさんじ[^】]*】\s*$/i;
 const SHORT={"VALORANT":"VALO","その他":"他"};
 const gShort=g=>SHORT[g]||g;
 const gameOf=t=>{const m=String(t||"").match(/【([^】]+)】/);return m?m[1].trim():"その他"};
-const normGame=g=>{if(!g)return"その他";g=String(g).trim();const u=g.toUpperCase();
-  if(u.includes("VALORANT")||u==="VALO"||g.includes("ヴァロ"))return"VALORANT";if(u.includes("APEX")||g.includes("エーペックス"))return"APEX";return g};
+// 8人共通で同じゲームとして数える表記（fetch_streams.py の SAME_GAME と同じ。完全一致のときだけ）
+// ---- ゲーム名の表記ゆれ ----
+// 1) 書き方が違うだけのもの（全角/半角・大文字/小文字・空白・記号・先頭の#）は、比べるための「キー」を同じにしてまとめ、
+//    表示はそのページで一番多い書き方にする（例：スプラ３/スプラ3、LETHAL COMPANY/Lethal Company、R.E.P.O./REPO）
+// 2) 末尾の回数（#1・＃２・part3 など）は外す（例：MADTOWN #１ → MADTOWN）
+// 3) 略称など書き方そのものが違う同じゲームは SAME_GAME の表でまとめる（fetch_streams.py の SAME_GAME と同じ）
+const SAME_GAME={
+  "OW":["ow","ow2","overwatch","overwatch2","オーバーウォッチ","オーバーウォッチ2"],
+  "LoL":["lol","leagueoflegends","リーグオブレジェンド"],
+  "スト6":["スト6","ストリートファイター6","streetfighter6","sf6"],
+  "スプラトゥーン3":["スプラ3","スプラトゥーン3","splatoon3"],
+  "マリオカート8DX":["マリカ8dx","マリオカート8dx","マリオカート8デラックス","mk8dx"],
+};
+const EP_RE=/\s*(?:[#＃]\s*[0-9０-９]+|part\s*[0-9０-９]+|パート[0-9０-９]+|その[0-9０-９]+|第[0-9０-９]+[回話])\s*$/i;
+const gKey=g=>String(g).normalize("NFKC").toLowerCase().replace(/[\s・:：\-'’‘!！?？.。、,#＃()（）\[\]|｜/／「」『』~〜_]/g,"");
+// 表示の書き方も軽くそろえる：全角の英数字→半角、全角スペース・連続スペース→1つ、先頭の #・＃ は外す（「！」などの記号はそのまま）
+const tidyGame=g=>String(g).replace(/[０-９Ａ-Ｚａ-ｚ]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/[\s　]+/g," ").replace(/^[#＃]\s*/,"").trim();
+const normGame=g=>{if(!g)return"その他";g=tidyGame(g)||String(g).trim();
+  const base=g.replace(EP_RE,"").trim()||g;
+  {const k=gKey(base);for(const [c,ws] of Object.entries(SAME_GAME))if(ws.includes(k))return c}const u=g.toUpperCase();
+  if(u.includes("VALORANT")||u==="VALO"||g.includes("ヴァロ"))return"VALORANT";if(u.includes("APEX")||g.includes("エーペックス"))return"APEX";return base};
+// 書き方違いをキーでまとめ、表示はページ内で一番多い書き方にそろえる
+function unifyGames(list){
+  const cnt={};
+  for(const x of list){const k=gKey(x.game)||x.game;(cnt[k]=cnt[k]||{})[x.game]=(cnt[k][x.game]||0)+1}
+  const best={};for(const [k,v] of Object.entries(cnt))best[k]=Object.entries(v).sort((a,b)=>b[1]-a[1])[0][0];
+  for(const x of list)x.game=best[gKey(x.game)||x.game]||x.game;
+}
 // 表示用タイトル：先頭のゲーム名【】と、末尾の【名前/にじさんじ】などを外す（名前は config.json から）
 const cleanTitle=t=>String(t||"").replace(/^\s*【[^】]*】\s*/,"").replace(TAIL_RE,"").trim()||String(t||"");
 const WD=["日","月","火","水","木","金","土"];
@@ -741,6 +767,7 @@ function normalize(d){
     return{id:"s"+i,kind:"stream",vkind:x.kind||"stream",status,est,own:x.own!==false,channel:x.channel||OWN,manual:!!x.manual,
       game:normGame(x.game||gameOf(x.title)),title:x.title||"",start:s,end:e,url:x.url||"https://www.youtube.com/",thumb:x.thumb||null,collabs:x.collabs||[]};
   });
+  unifyGames(streams);
   posts=(d.posts||[]).filter(x=>x.time).map((x,i)=>({id:"p"+i,kind:"post",ann:x.kind==="announce",time:T(x.time),
     text:x.text||(x.kind==="announce"?"配信告知":"ポスト"),body:x.body||"",url:x.url||"https://x.com/"}));
   deadlines=(d.deadlines||[]).filter(x=>x.deadline).map((x,i)=>({id:"d"+i,kind:"deadline",title:x.title||"締切",shared:!!x.shared,time:T(x.deadline),url:x.url||"https://x.com/"}));
