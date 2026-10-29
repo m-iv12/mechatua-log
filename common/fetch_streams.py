@@ -355,7 +355,23 @@ UNITS = {
     "カニハチミツ丼": ["@HibachiMana", "@KoyanagiRou", "@InamiRai"],
     "ざぶぅん": ["@HibachiMana", "@InamiRai"],
     "こやなみ": ["@KoyanagiRou", "@InamiRai"],
-    "酒やメロウ": ["@AkagiWen", "@KoyanagiRou"],          # 狂蘭メロコさんを含む3人組（メンバー外の人はここには書かない）
+    # メンバー外の人を含むユニット（にじさんじ wiki「MECHATU-A」のユニット表より。メンバー外の人はここには書かない）
+    "佐伯のカザウェン": ["@SaikiIttetsu", "@AkagiWen"],                     # ＋森中花咲
+    "ミュージカル組": ["@SaikiIttetsu", "@UsamiRito"],                       # ＋周央サンゴ、東堂コハク
+    "コマ投げ共学高校": ["@SaikiIttetsu", "@UsamiRito"],                     # ＋社築、壱百満天原サロメ、板橋ザンギエフ
+    "コマ投げ男子校": ["@SaikiIttetsu", "@UsamiRito"],                       # ＋社築、板橋ザンギエフ
+    "情報差分組": ["@AkagiWen", "@HoshirubeSho"],                            # ＋長尾景、榊ネス
+    "酒やメロウ": ["@AkagiWen", "@KoyanagiRou"],                             # ＋狂蘭メロコ
+    "ギャルと韻キャ": ["@AkagiWen", "@KoyanagiRou"],                         # ＋石神のぞみ、倉持めると
+    "XVI": ["@AkagiWen", "@InamiRai"],                                       # シックスティーン
+    "シックスティーン": ["@AkagiWen", "@InamiRai"],
+    "赤獅子組": ["@UsamiRito", "@MurakumoKagetsu"],
+    "熱血卍リベンジャーズ": ["@UsamiRito", "@MurakumoKagetsu", "@KoyanagiRou"],  # ＋魔界ノりりむ、酒寄颯馬
+    "しまべこ": ["@HibachiMana", "@HoshirubeSho"],                           # ＋天宮こころ、早乙女ベリー
+    "変態声真似集団": ["@HoshirubeSho", "@MurakumoKagetsu"],                 # ＋風楽奏斗、渡会雲雀
+    "チーム他責": ["@HoshirubeSho", "@KoyanagiRou"],                         # ＋本間ひまわり、椎名唯華
+    "1000円飲み放題": ["@HoshirubeSho", "@InamiRai"],                        # ＋五十嵐梨花、社築
+    "BOしたら坊主": ["@KoyanagiRou", "@InamiRai"],                           # ＋神田笑一
 }
 
 
