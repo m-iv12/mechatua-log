@@ -434,7 +434,8 @@ const UNITS={
   "サイゲツ":["saiki-log","murakumo-log"],"バイト組":["akagi-log","usami-log","hoshirube-log","murakumo-log"],"きゅんbro":["akagi-log","murakumo-log"],
   "ぎゃうるふ":["akagi-log","koyanagi-log"],"べしゃり隊":["usami-log","hibachi-log"],"にじヴィラン":["hibachi-log","hoshirube-log","koyanagi-log"],
   "ぱちすたっ★":["hibachi-log","hoshirube-log"],"ぱぶぅん":["hibachi-log","hoshirube-log","inami-log"],"カニハチミツ丼":["hibachi-log","koyanagi-log","inami-log"],
-  "ざぶぅん":["hibachi-log","inami-log"],"こやなみ":["koyanagi-log","inami-log"]};
+  "ざぶぅん":["hibachi-log","inami-log"],"こやなみ":["koyanagi-log","inami-log"],
+  "酒やメロウ":["akagi-log","koyanagi-log"]};   // 狂蘭メロコさんを含む3人組（メンバー外の人は書かない）
 const unitsIn=t=>{t=String(t||"").toLowerCase();return Object.keys(UNITS).filter(u=>t.includes(u.toLowerCase()))};
 const unitHas=(t,m)=>unitsIn(t).some(u=>UNITS[u].includes(m.repo));
 function namesIn(title){
