@@ -122,7 +122,7 @@ h1{margin:0;font-family:var(--font-body);font-weight:700;font-size:clamp(1.3rem,
 .dh{position:relative}
 .pl-line{position:absolute;left:0;right:-1px;bottom:0;border-bottom:2px dotted var(--main);pointer-events:none}
 .pl-line.st{left:50%}.pl-line.en{right:50%}
-.pd-row{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) auto;gap:8px;align-items:center}
+.pd-row{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr) minmax(0,1fr) auto;gap:6px;align-items:center}
 .pd-del{border:1px solid var(--grid-2);background:var(--paper);color:var(--ink-soft);border-radius:99px;width:28px;height:28px;font-size:.9rem;line-height:1}
 .pd-add{align-self:flex-start;border:1px dashed var(--main);background:var(--paper);color:var(--main-d);border-radius:99px;font-size:.78rem;font-weight:700;padding:4px 12px}
 #f-pdates{display:flex;flex-direction:column;gap:6px}
@@ -607,12 +607,12 @@ h1{font-size:1rem;letter-spacing:.02em;white-space:nowrap}
           <label class="fld"><span>終了日</span><input type="date" id="f-pend"></label>
         </div>
         <div class="pm fld" data-pm="dates" hidden>
-          <span>日付と一言（一言は任意：予選・本番 など）</span>
+          <span>日付・時刻・一言（時刻と一言は任意：予選・本番 など）</span>
           <div id="f-pdates"></div>
           <button type="button" class="pd-add" id="f-padd">＋ 日付を追加</button>
         </div>
         <div class="row2">
-          <label class="fld"><span>時刻（任意）</span><input type="time" id="f-ptime"></label>
+          <label class="fld" id="f-ptime-l"><span>時刻（任意）</span><input type="time" id="f-ptime"></label>
           <label class="fld"><span>対象</span><select id="f-pscope"><option value="own">この人だけ</option><option value="all">MECHATU-A 全員</option></select></label>
         </div>
         <label class="fld"><span>メモ（任意）</span><input type="text" id="f-pnote" placeholder="チーム名・練習期間など"></label>
@@ -725,14 +725,14 @@ function normalize(d){
   plans=(d.plans||[]).filter(x=>x.start&&!isNaN(jday(x.start))).map((x,i)=>{
     const base={id:"m"+i,kind:"plan",title:x.title||"予定",shared:!!x.shared,time:x.time||"",note:x.note||"",url:x.url||"",raw:x};
     if(Array.isArray(x.dates)&&x.dates.length){
-      const days=x.dates.map(y=>({t:jday(y.date||y),label:(y&&y.label)||""})).filter(y=>!isNaN(y.t)&&y.t+DAYMS>now).sort((a,b)=>a.t-b.t);
+      const days=x.dates.map(y=>({t:jday(y.date||y),label:(y&&y.label)||"",time:(y&&y.time)||""})).filter(y=>!isNaN(y.t)&&y.t+DAYMS>now).sort((a,b)=>a.t-b.t);
       if(!days.length)return null;
       return Object.assign(base,{mode:"dates",days,start:days[0].t,last:days[days.length-1].t});
     }
     const s=jday(x.start),l=x.end&&!isNaN(jday(x.end))?Math.max(jday(x.end),s):s;
     return Object.assign(base,{mode:l>s?"range":"single",start:s,last:l});
   }).filter(x=>x&&x.last+DAYMS>now);
-  plans.forEach(x=>{x.end=x.last+DAYMS;x.next=x.mode==="dates"?x.days[0]:{t:x.start,label:""}});
+  plans.forEach(x=>{x.end=x.last+DAYMS;x.next=x.mode==="dates"?x.days[0]:{t:x.start,label:"",time:x.time}});
   plans.sort((a,b)=>Math.max(a.next.t,sod(now))-Math.max(b.next.t,sod(now))||a.next.t-b.next.t);
   events=streams.concat(posts,deadlines,plans);
 }
@@ -916,7 +916,7 @@ function renderPlans(){
   const now=Date.now(),el=$("plans");
   el.hidden=!plans.length;
   el.innerHTML=`<span class="dl-h">これからの予定</span>`+plans.slice(0,5).map(x=>{
-    return`<button class="dl-item" data-id="${x.id}"><span class="pl-left">${plRange(x)}</span><span class="dl-title">${x.shared?'<i class="dl-all">全員</i>':""}${esc(x.title)}</span><span class="dl-date">${plWhen(x)}${x.time?" ・ "+esc(x.time)+"〜":""}</span></button>`}).join("")
+    return`<button class="dl-item" data-id="${x.id}"><span class="pl-left">${plRange(x)}</span><span class="dl-title">${x.shared?'<i class="dl-all">全員</i>':""}${esc(x.title)}</span><span class="dl-date">${plWhen(x)}${x.next.time||x.time?" ・ "+esc(x.next.time||x.time)+"〜":""}</span></button>`}).join("")
     +(plans.length>5?`<span class="dl-date pl-more" style="text-align:center">ほか ${plans.length-5} 件はカレンダーの「予定」の印から</span>`:"");
 }
 function render(){
@@ -965,9 +965,9 @@ function openSheet(ev){
     tag.className="tag pl";tag.removeAttribute("style");tag.textContent="予定メモ";
     st.hidden=false;st.textContent=plWhen(ev).replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"');
     $("sh-title").textContent=ev.title;
-    const days=ev.mode==="dates"?`<ul class="pl-days">${ev.days.map(y=>`<li>${md(y.t)}${y.label?`<b>${esc(y.label)}</b>`:""}</li>`).join("")}</ul>`
+    const days=ev.mode==="dates"?`<ul class="pl-days">${ev.days.map(y=>`<li>${md(y.t)}${y.time||ev.time?" "+esc(y.time||ev.time)+"〜":""}${y.label?`<b>${esc(y.label)}</b>`:""}</li>`).join("")}</ul>`
       :ev.mode==="range"?`${md(ev.start)} – ${md(ev.last)}`:md(ev.start);
-    dl.innerHTML=`<dt>日程</dt><dd>${days}</dd>`+(ev.time?`<dt>時刻</dt><dd>${esc(ev.time)}〜</dd>`:"")+(ev.shared?`<dt>対象</dt><dd>MECHATU-A 全員</dd>`:"");
+    dl.innerHTML=`<dt>日程</dt><dd>${days}</dd>`+(ev.time&&ev.mode!=="dates"?`<dt>時刻</dt><dd>${esc(ev.time)}〜</dd>`:"")+(ev.shared?`<dt>対象</dt><dd>MECHATU-A 全員</dd>`:"");
     link.hidden=!ev.url;if(ev.url){link.href=ev.url;link.textContent="告知などを開く ↗"}
     ex.innerHTML=(ev.note?`<p class="pl-note">${esc(ev.note)}</p>`:"")+(document.body.classList.contains("edit")?`<button type="button" class="pl-del" data-id="${ev.id}">このメモを消す</button>`:"");
   }else if(ev.kind==="deadline"){
@@ -1109,10 +1109,11 @@ const SHOW_ADD_ALWAYS=false; // 「追加」ボタンは URL の末尾に #edit 
     if(!id){$("f-xtime").textContent="";return}
     const t=new Date(xTime(id));$("f-xtime").textContent=`投稿時刻：${t.getFullYear()}/${t.getMonth()+1}/${t.getDate()} ${t.getHours()}:${pad(t.getMinutes())}`});
   // 予定メモ：日程の種類の切り替えと、飛び飛びの日付の行
-  const pmode=()=>document.querySelectorAll("#add-form .pm").forEach(g=>g.hidden=g.dataset.pm!==$("f-pmode").value);
+  const pmode=()=>{document.querySelectorAll("#add-form .pm").forEach(g=>g.hidden=g.dataset.pm!==$("f-pmode").value);
+    $("f-ptime-l").hidden=$("f-pmode").value==="dates";};   // 複数の日は日ごとに時刻を入れる
   $("f-pmode").addEventListener("change",pmode);
   const addRow=()=>{const r=document.createElement("div");r.className="pd-row";
-    r.innerHTML='<input type="date" aria-label="日付"><input type="text" placeholder="予選・本番 など" aria-label="一言"><button type="button" class="pd-del" aria-label="この日付を消す">×</button>';
+    r.innerHTML='<input type="date" aria-label="日付"><input type="time" aria-label="時刻"><input type="text" placeholder="予選 など" aria-label="一言"><button type="button" class="pd-del" aria-label="この日付を消す">×</button>';
     $("f-pdates").appendChild(r)};
   const resetRows=()=>{$("f-pdates").innerHTML="";addRow();addRow();pmode()};
   $("f-padd").addEventListener("click",addRow);
@@ -1150,12 +1151,12 @@ const SHOW_ADD_ALWAYS=false; // 「追加」ボタンは URL の末尾に #edit 
         title=`[追加] 予定メモ ${d}`;lines=[`type: plan`,`start: ${d}`,`title: ${ti}`];
         if(de!==d)lines.push(`end: ${de}`);
       }else{
-        const ds=[...document.querySelectorAll("#f-pdates .pd-row")].map(r=>({d:r.querySelector("input[type=date]").value,l:r.querySelector("input[type=text]").value.trim().replace(/[\/／]/g,"・")})).filter(x=>x.d);
+        const ds=[...document.querySelectorAll("#f-pdates .pd-row")].map(r=>({d:r.querySelector("input[type=date]").value,tm:r.querySelector("input[type=time]").value,l:r.querySelector("input[type=text]").value.trim().replace(/[\/／]/g,"・")})).filter(x=>x.d);
         if(!ds.length){err.textContent="日付を1つ以上入れてください。";return}
         ds.sort((a,b)=>a.d<b.d?-1:1);
-        title=`[追加] 予定メモ ${ds[0].d}`;lines=[`type: plan`,`start: ${ds[0].d}`,`title: ${ti}`,`dates: ${ds.map(x=>x.d+(x.l?" "+x.l:"")).join(" / ")}`];
+        title=`[追加] 予定メモ ${ds[0].d}`;lines=[`type: plan`,`start: ${ds[0].d}`,`title: ${ti}`,`dates: ${ds.map(x=>x.d+(x.tm?" "+x.tm:"")+(x.l?" "+x.l:"")).join(" / ")}`];
       }
-      if(tm)lines.push(`time: ${tm}`);
+      if(tm&&mode!=="dates")lines.push(`time: ${tm}`);
       if(no)lines.push(`note: ${no}`);
       if(u)lines.push(`url: ${u}`);
       if($("f-pscope").value==="all")target=SHARED_REPO();

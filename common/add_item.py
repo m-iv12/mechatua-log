@@ -8,7 +8,7 @@
   time: ... / announce: yes|no        (post)
   deadline: ... / title: ...          (deadline)
   start: 2026-12-05 / end: ... / title: ... / time: ... / note: ... (plan：予定メモ)
-  dates: 2026-11-08 予選 / 2026-11-22 本番   (plan：飛び飛びの日程のとき)
+  dates: 2026-11-08 20:00 予選 / 2026-11-22 本番   (plan：飛び飛びの日程のとき。時刻と一言は任意)
   start: ... / title: ...             (unplan：予定メモを消す)
 """
 import json
@@ -125,11 +125,13 @@ def main():
         if f.get("dates"):
             days = []
             for part in f["dates"].split("/"):
-                m = re.match(r"\s*(\d{4}-\d{2}-\d{2})\s*(.*?)\s*$", part)
+                m = re.match(r"\s*(\d{4}-\d{2}-\d{2})(?:\s+(\d{1,2}:\d{2}))?\s*(.*?)\s*$", part)
                 if m:
                     d = {"date": m.group(1)}
                     if m.group(2):
-                        d["label"] = m.group(2)[:40]
+                        d["time"] = m.group(2)
+                    if m.group(3):
+                        d["label"] = m.group(3)[:40]
                     days.append(d)
             if not days:
                 sys.exit("日付が読み取れません")
