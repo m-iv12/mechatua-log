@@ -435,10 +435,14 @@ const UNITS={
   "ぎゃうるふ":["akagi-log","koyanagi-log"],"べしゃり隊":["usami-log","hibachi-log"],"にじヴィラン":["hibachi-log","hoshirube-log","koyanagi-log"],
   "ぱちすたっ★":["hibachi-log","hoshirube-log"],"ぱぶぅん":["hibachi-log","hoshirube-log","inami-log"],"カニハチミツ丼":["hibachi-log","koyanagi-log","inami-log"],
   "ざぶぅん":["hibachi-log","inami-log"],"こやなみ":["koyanagi-log","inami-log"],
-  // メンバー外の人を含むユニット（メンバー外の人は書かない）
-  "酒やメロウ":["akagi-log","koyanagi-log"],        // ＋狂蘭メロコ
-  "しまべこ":["hoshirube-log","hibachi-log"],        // ＋早乙女ベリー、天宮こころ
-  "チーム他責":["koyanagi-log","hoshirube-log"]};    // ＋本間ひまわり、椎名唯華
+  // メンバー外の人を含むユニット（にじさんじ wiki「MECHATU-A」のユニット表より。メンバー外の人は書かない）
+  "佐伯のカザウェン":["saiki-log","akagi-log"],"ミュージカル組":["saiki-log","usami-log"],
+  "コマ投げ共学高校":["saiki-log","usami-log"],"コマ投げ男子校":["saiki-log","usami-log"],
+  "情報差分組":["akagi-log","hoshirube-log"],"酒やメロウ":["akagi-log","koyanagi-log"],"ギャルと韻キャ":["akagi-log","koyanagi-log"],
+  "XVI":["akagi-log","inami-log"],"シックスティーン":["akagi-log","inami-log"],
+  "赤獅子組":["usami-log","murakumo-log"],"熱血卍リベンジャーズ":["usami-log","murakumo-log","koyanagi-log"],
+  "しまべこ":["hibachi-log","hoshirube-log"],"変態声真似集団":["hoshirube-log","murakumo-log"],"チーム他責":["hoshirube-log","koyanagi-log"],
+  "1000円飲み放題":["hoshirube-log","inami-log"],"BOしたら坊主":["koyanagi-log","inami-log"]};
 const unitsIn=t=>{t=String(t||"").toLowerCase();return Object.keys(UNITS).filter(u=>t.includes(u.toLowerCase()))};
 const unitHas=(t,m)=>unitsIn(t).some(u=>UNITS[u].includes(m.repo));
 function namesIn(title){
