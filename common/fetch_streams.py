@@ -552,10 +552,23 @@ def prune_plans():
         return
     items = load(path, [])
     today = datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%d")
-    keep = [x for x in items if (x.get("end") or x.get("start") or "9999") >= today]
-    if len(keep) != len(items):
+    keep = []
+    for x in items:
+        if x.get("dates"):
+            # 飛び飛びの日程は、過ぎた日を外す（全部過ぎたらメモごと消す）
+            days = [d for d in x["dates"] if d.get("date", "9999") >= today]
+            if not days:
+                continue
+            x = dict(x, dates=days, start=days[0]["date"])
+            if days[-1]["date"] != days[0]["date"]:
+                x["end"] = days[-1]["date"]
+            else:
+                x.pop("end", None)
+        if (x.get("end") or x.get("start") or "9999") >= today:
+            keep.append(x)
+    if keep != items:
         save(path, keep)
-        print(f"予定メモ: 過ぎた {len(items) - len(keep)} 件を消しました")
+        print(f"予定メモ: 過ぎた日・予定を整理しました（{len(items)} 件 → {len(keep)} 件）")
 
 
 # ---------- ポストの本文 ----------

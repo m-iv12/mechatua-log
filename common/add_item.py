@@ -8,6 +8,7 @@
   time: ... / announce: yes|no        (post)
   deadline: ... / title: ...          (deadline)
   start: 2026-12-05 / end: ... / title: ... / time: ... / note: ... (plan：予定メモ)
+  dates: 2026-11-08 予選 / 2026-11-22 本番   (plan：飛び飛びの日程のとき)
   start: ... / title: ...             (unplan：予定メモを消す)
 """
 import json
@@ -33,7 +34,21 @@ def prune_plans(items):
     """予定メモのうち、終了日（なければ開始日）が日本時間で今日より前のものを除く。"""
     from datetime import datetime, timedelta, timezone
     today = datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%d")
-    return [x for x in items if (x.get("end") or x.get("start") or "9999") >= today]
+    out = []
+    for x in items:
+        if x.get("dates"):
+            # 飛び飛びの日程は、過ぎた日を一覧から外す（全部過ぎたらメモごと消す）
+            days = [d for d in x["dates"] if d.get("date", "9999") >= today]
+            if not days:
+                continue
+            x = dict(x, dates=days, start=days[0]["date"])
+            if days[-1]["date"] != days[0]["date"]:
+                x["end"] = days[-1]["date"]
+            else:
+                x.pop("end", None)
+        if (x.get("end") or x.get("start") or "9999") >= today:
+            out.append(x)
+    return out
 
 
 def main():
@@ -106,6 +121,23 @@ def main():
         item = {"title": f.get("title", "予定")[:200], "start": start}
         if end and end != start:
             item["end"] = end
+        # 複数の日（飛び飛び）：「dates: 2026-11-08 予選 / 2026-11-15 予選 / 2026-11-22 本番」
+        if f.get("dates"):
+            days = []
+            for part in f["dates"].split("/"):
+                m = re.match(r"\s*(\d{4}-\d{2}-\d{2})\s*(.*?)\s*$", part)
+                if m:
+                    d = {"date": m.group(1)}
+                    if m.group(2):
+                        d["label"] = m.group(2)[:40]
+                    days.append(d)
+            if not days:
+                sys.exit("日付が読み取れません")
+            days.sort(key=lambda d: d["date"])
+            item["dates"] = days
+            item["start"], start = days[0]["date"], days[0]["date"]
+            if days[-1]["date"] != start:
+                item["end"] = days[-1]["date"]
         if re.fullmatch(r"\d{1,2}:\d{2}", f.get("time", "")):
             item["time"] = f["time"]
         if f.get("note"):
@@ -120,7 +152,10 @@ def main():
     elif t == "unplan":
         start, title = f.get("start", ""), f.get("title", "")
         before = load("plans.json", [])
-        items = [x for x in prune_plans(before) if (x.get("title"), x.get("start")) != (title, start)]
+        def same(x):
+            starts = {x.get("start")} | {d.get("date") for d in x.get("dates", [])}
+            return x.get("title") == title and start in starts
+        items = [x for x in prune_plans(before) if not same(x)]
         if len(items) == len(prune_plans(before)):
             print("消す予定メモが見つかりませんでした（すでに消えている可能性があります）")
         save("plans.json", items)
