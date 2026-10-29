@@ -7,6 +7,8 @@
   title: ... / game: ... / own: yes|no (schedule)
   time: ... / announce: yes|no        (post)
   deadline: ... / title: ...          (deadline)
+  start: 2026-12-05 / end: ... / title: ... / time: ... / note: ... (plan：予定メモ)
+  start: ... / title: ...             (unplan：予定メモを消す)
 """
 import json
 import os
@@ -25,6 +27,13 @@ def load(name, default):
 
 def save(name, obj):
     (DATA / name).write_text(json.dumps(obj, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+def prune_plans(items):
+    """予定メモのうち、終了日（なければ開始日）が日本時間で今日より前のものを除く。"""
+    from datetime import datetime, timedelta, timezone
+    today = datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%d")
+    return [x for x in items if (x.get("end") or x.get("start") or "9999") >= today]
 
 
 def main():
@@ -87,6 +96,35 @@ def main():
         # 手動で登録していた場合は登録も外す
         save("collab_videos.json", [x for x in load("collab_videos.json", []) if vid not in x])
 
+    elif t == "plan":
+        # 予定メモ：まだ枠のない先の予定（大会・サーバー企画など）。終了日（なければ開始日）が過ぎたら消す
+        start, end = f.get("start", ""), f.get("end", "")
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", start):
+            sys.exit("開始日が読み取れません")
+        if end and (not re.fullmatch(r"\d{4}-\d{2}-\d{2}", end) or end < start):
+            sys.exit("終了日が読み取れません")
+        item = {"title": f.get("title", "予定")[:200], "start": start}
+        if end and end != start:
+            item["end"] = end
+        if re.fullmatch(r"\d{1,2}:\d{2}", f.get("time", "")):
+            item["time"] = f["time"]
+        if f.get("note"):
+            item["note"] = f["note"][:300]
+        if f.get("url", "").startswith("https://"):
+            item["url"] = f["url"]
+        items = [x for x in prune_plans(load("plans.json", [])) if (x.get("title"), x.get("start")) != (item["title"], start)]
+        items.append(item)
+        items.sort(key=lambda x: x["start"])
+        save("plans.json", items)
+
+    elif t == "unplan":
+        start, title = f.get("start", ""), f.get("title", "")
+        before = load("plans.json", [])
+        items = [x for x in prune_plans(before) if (x.get("title"), x.get("start")) != (title, start)]
+        if len(items) == len(prune_plans(before)):
+            print("消す予定メモが見つかりませんでした（すでに消えている可能性があります）")
+        save("plans.json", items)
+
     elif t == "deadline":
         if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+09:00", f.get("deadline", "")):
             sys.exit("締切日時が読み取れません")
@@ -103,7 +141,7 @@ def main():
         sys.exit("type が読み取れません")
     print("追加しました:", t)
     # ポスト・締切は YouTube のデータを使わないので、このあとの取得では YouTube に問い合わせない（API の使用量を節約）
-    if t in ("post", "deadline", "schedule"):
+    if t in ("post", "deadline", "schedule", "plan", "unplan"):
         Path(NO_YOUTUBE).parent.mkdir(parents=True, exist_ok=True)
         Path(NO_YOUTUBE).touch()
 

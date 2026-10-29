@@ -544,6 +544,20 @@ def merge(own, partners, own_name):
     return sorted(out, key=lambda r: r["start"])
 
 
+# ---------- 予定メモ ----------
+def prune_plans():
+    """plans.json（予定メモ）のうち、終了日（なければ開始日）が日本時間で今日より前のものを消す。"""
+    path = DATA / "plans.json"
+    if not path.exists():
+        return
+    items = load(path, [])
+    today = datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%d")
+    keep = [x for x in items if (x.get("end") or x.get("start") or "9999") >= today]
+    if len(keep) != len(items):
+        save(path, keep)
+        print(f"予定メモ: 過ぎた {len(items) - len(keep)} 件を消しました")
+
+
 # ---------- ポストの本文 ----------
 def fill_post_texts(limit=20):
     """posts.json のポストに本文（body）がなければ、X の公式埋め込み（oEmbed、登録不要）から取って書き足す。
@@ -628,6 +642,7 @@ def main():
         save(DATA / "cache_meta.json", {"since": CONFIG["since"], "channel": CONFIG["channel"], "scanned_channels": sorted(scanned),
                                         "own_name": own_name, "channels": CHANNELS})
     print(f"表示用データ: {len(data)} 件")
+    prune_plans()
     fill_post_texts()
 
 

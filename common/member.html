@@ -107,6 +107,23 @@ h1{margin:0;font-family:var(--font-body);font-weight:700;font-size:clamp(1.3rem,
 .dl-all{font-style:normal;display:inline-block;margin-right:5px;padding:0 6px;border-radius:99px;font-size:.66rem;font-weight:700;vertical-align:1px;
   background:var(--paper);color:var(--ink-soft);box-shadow:inset 0 0 0 1px var(--memo-d)}
 
+/* ---- 予定メモ（先の予定。過ぎたものは表示しない）---- */
+.pl-panel{background:var(--paper);background-image:none}
+.pl-panel::before{background:repeating-linear-gradient(90deg,rgb(var(--memo-d-rgb) / .95) 0 6px,rgb(var(--memo-d-rgb) / .7) 6px 12px)}
+.pl-left{grid-row:1 / 3;font-family:var(--font-label);font-weight:600;font-size:.8rem;color:var(--main-d);background:var(--paper);white-space:nowrap;
+  min-width:5.6em;padding:2px 5px;text-align:center;border:1.5px dashed var(--main);border-radius:3px;font-variant-numeric:tabular-nums}
+.pl-tag{margin-top:3px;border:1px dashed var(--main);background:var(--paper);color:var(--main-d);font-size:.6rem;font-weight:700;padding:0 5px;line-height:1.4;border-radius:99px}
+.pl-badge{font-size:.58rem;font-weight:700;color:var(--main-d);background:var(--paper);border:1px dashed var(--main);border-radius:99px;padding:0 5px;line-height:1.45}
+.mbadges{position:absolute;left:3px;bottom:3px;z-index:2;display:flex;flex-direction:column;align-items:flex-start;gap:2px;pointer-events:none}
+.mbadges .dl-badge{position:static}
+@media (max-width:480px){.pl-badge{font-size:.5rem;padding:0 3px}}
+.tag.pl{background:var(--paper);color:var(--main-d);border:1.5px dashed var(--main)}
+.k-pl{width:14px;height:10px;border-radius:99px;border:1.5px dashed var(--main);background:var(--paper)}
+.pl-note{margin:10px 0 0;font-size:.85rem;white-space:pre-wrap;line-height:1.6}
+.pl-del{margin-top:14px;border:1px solid #d9b3bc;background:var(--paper);color:#a3435a;border-radius:8px;font-size:.78rem;font-weight:700;padding:4px 12px}
+.pl-del.armed{background:#a3435a;color:#fff;border-color:#a3435a}
+.pl-del:disabled{opacity:.7;cursor:default}
+
 /* ---- ボード（クリップボード＋方眼紙）---- */
 .card{position:relative;background:var(--board);border-radius:14px;padding:26px 8px 8px;margin-top:10px}
 .strap{position:absolute;left:50%;top:-12px;transform:translateX(-50%);width:140px;height:26px;border-radius:5px;
@@ -429,6 +446,9 @@ h1{font-size:1rem;letter-spacing:.02em;white-space:nowrap}
 .wk-head{flex:none;height:var(--wkh,50px);overflow:hidden}
 .dh{position:relative;padding:5px 2px 3px}
 .dl-tag{position:absolute;top:2px;right:1px;margin:0}
+.pl-tag{position:absolute;top:3px;left:2px;margin:0;padding:0;width:9px;height:9px;font-size:0;border-radius:50%}   /* スマホは列が細いので、文字なしの点だけ */
+.pl-panel{margin-top:10px}
+.pl-more{display:none}
 .mo-head{flex:none}
 .mo-grid{flex:1;min-height:0;grid-auto-rows:minmax(0,1fr)}
 .mc{aspect-ratio:auto}
@@ -464,6 +484,7 @@ h1{font-size:1rem;letter-spacing:.02em;white-space:nowrap}
   .dl-h{display:block}
   .dl-item:not(:first-of-type){display:grid}
   .dl-item{padding:6px 0 3px}
+  .pl-more{display:block}
   .note{display:block}
   .card{margin-top:14px;padding:26px 8px 8px}
 }
@@ -494,6 +515,7 @@ h1{font-size:1rem;letter-spacing:.02em;white-space:nowrap}
   </div>
   <div class="summary" id="summary"></div>
   <div class="dl-panel" id="deadlines" hidden></div>
+  <div class="dl-panel pl-panel" id="plans" hidden></div>
   <div class="note">
       <p class="note-h">凡例</p>
       <ul>
@@ -502,6 +524,7 @@ h1{font-size:1rem;letter-spacing:.02em;white-space:nowrap}
         <li><span class="k key-co"></span>コラボ</li>
         <li><span class="k key-up"></span>配信予定</li>
         <li><span class="k k-dl"></span>締切</li>
+        <li><span class="k k-pl"></span>予定メモ</li>
       </ul>
     </div>
   </aside>
@@ -530,6 +553,7 @@ h1{font-size:1rem;letter-spacing:.02em;white-space:nowrap}
         <label><input type="radio" name="ftype" id="t-schedule" value="schedule">配信予定</label>
         <label><input type="radio" name="ftype" id="t-post" value="post">ポスト</label>
         <label><input type="radio" name="ftype" id="t-deadline" value="deadline">締切</label>
+        <label><input type="radio" name="ftype" id="t-plan" value="plan">予定メモ</label>
       </div>
       <div class="fgroup" data-type="collab">
         <label class="fld"><span>YouTube の URL（配信・動画）</span><input type="url" id="f-yt" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off"></label>
@@ -563,6 +587,20 @@ h1{font-size:1rem;letter-spacing:.02em;white-space:nowrap}
         <label class="fld"><span>告知ポストか販売ページの URL</span><input type="url" id="f-durl" placeholder="https://x.com/…/status/…" autocomplete="off"></label>
         <label class="fld"><span>対象</span><select id="f-dscope"><option value="own">この人だけ</option><option value="all">MECHATU-A 全員（8人のページとまとめページに表示）</option></select></label>
         <p class="help">カレンダーの上の「締切が近いもの」と、該当日に「締切」の印で表示されます。</p>
+      </div>
+      <div class="fgroup" data-type="plan" hidden>
+        <label class="fld"><span>内容</span><input type="text" id="f-ptitle" placeholder="〇〇杯 本番／△△鯖 参加 など"></label>
+        <div class="row2">
+          <label class="fld"><span>開始日</span><input type="date" id="f-pstart"></label>
+          <label class="fld"><span>終了日（複数日なら）</span><input type="date" id="f-pend"></label>
+        </div>
+        <div class="row2">
+          <label class="fld"><span>時刻（任意）</span><input type="time" id="f-ptime"></label>
+          <label class="fld"><span>対象</span><select id="f-pscope"><option value="own">この人だけ</option><option value="all">MECHATU-A 全員</option></select></label>
+        </div>
+        <label class="fld"><span>メモ（任意）</span><input type="text" id="f-pnote" placeholder="チーム名・練習期間など"></label>
+        <label class="fld"><span>告知ポストなどの URL（任意）</span><input type="url" id="f-purl" placeholder="https://x.com/…/status/…" autocomplete="off"></label>
+        <p class="help">まだ枠のない先の予定を書いておくメモです。カレンダーの上の「これからの予定」と、該当日に「予定」の印で表示されます。終了日（なければ開始日）が過ぎると自動で消え、過去の記録には残りません。</p>
       </div>
       <p class="err" id="f-err" role="alert"></p>
       <button class="submit" type="submit">GitHub で登録する</button>
@@ -632,7 +670,7 @@ const SHARED_BASE="../mechatua-log/common/";   // 8人共通のファイルの�
 // ---- *.json を読み込む ----
 async function getData(){
   const get=async p=>{try{const r=await fetch(p,{cache:"no-cache"});return r.ok?await r.json():[]}catch(e){return[]}};
-  const [streams,posts,own_dl,cfg]=await Promise.all([get("streams.json"),get("posts.json"),get("deadlines.json"),get("config.json")]);
+  const [streams,posts,own_dl,own_pl,cfg]=await Promise.all([get("streams.json"),get("posts.json"),get("deadlines.json"),get("plans.json"),get("config.json")]);
   // MECHATU-A 全員に関係する締切は、まとめページ側の common/deadlines.json に1つだけ置く（config.json の "shared_deadlines": null で読まない）
   const sp=cfg&&cfg.shared_deadlines!==undefined?cfg.shared_deadlines:SHARED_BASE+"deadlines.json";
   const shared=sp?(await get(sp)).map(x=>Object.assign({},x,{shared:true})):[];
@@ -640,11 +678,19 @@ async function getData(){
   const key=x=>(x.title||"")+"|"+x.deadline;
   const sk=new Set(shared.map(key));
   const deadlines=shared.concat((own_dl||[]).filter(x=>!sk.has(key(x))));
+  // 予定メモも同じ形：全員分は common/plans.json（config.json の "shared_plans": null で読まない）
+  const spp=cfg&&cfg.shared_plans!==undefined?cfg.shared_plans:SHARED_BASE+"plans.json";
+  const sharedPl=spp?(await get(spp)).map(x=>Object.assign({},x,{shared:true})):[];
+  const pkey=x=>(x.title||"")+"|"+x.start;
+  const pk=new Set(sharedPl.map(pkey));
+  const plans=sharedPl.concat((Array.isArray(own_pl)?own_pl:[]).filter(x=>!pk.has(pkey(x))));
   applyConfig(cfg);
-  return {streams,posts,deadlines};
+  return {streams,posts,deadlines,plans};
 }
 
-let events=[],streams=[],posts=[],deadlines=[];
+let events=[],streams=[],posts=[],deadlines=[],plans=[];
+// 予定メモの日付（日本時間の 0:00）。終了日（なければ開始日）の翌日 0:00 を過ぎたら表示しない
+const jday=s=>Date.parse(String(s).slice(0,10)+"T00:00:00+09:00");
 const T=v=>typeof v==="number"?v:Date.parse(v);
 function normalize(d){
   const now=Date.now();
@@ -658,7 +704,11 @@ function normalize(d){
   posts=(d.posts||[]).filter(x=>x.time).map((x,i)=>({id:"p"+i,kind:"post",ann:x.kind==="announce",time:T(x.time),
     text:x.text||(x.kind==="announce"?"配信告知":"ポスト"),body:x.body||"",url:x.url||"https://x.com/"}));
   deadlines=(d.deadlines||[]).filter(x=>x.deadline).map((x,i)=>({id:"d"+i,kind:"deadline",title:x.title||"締切",shared:!!x.shared,time:T(x.deadline),url:x.url||"https://x.com/"}));
-  events=streams.concat(posts,deadlines);
+  plans=(d.plans||[]).filter(x=>x.start&&!isNaN(jday(x.start))).map((x,i)=>{
+    const s=jday(x.start),e0=x.end&&!isNaN(jday(x.end))?Math.max(jday(x.end),s):s;
+    return{id:"m"+i,kind:"plan",title:x.title||"予定",shared:!!x.shared,start:s,end:e0+DAYMS,time:x.time||"",note:x.note||"",url:x.url||"",raw:x};
+  }).filter(x=>x.end>now).sort((a,b)=>a.start-b.start);
+  events=streams.concat(posts,deadlines,plans);
 }
 
 // ---- helpers ----
@@ -666,6 +716,9 @@ const hm=t=>{const d=new Date(t);return d.getHours()+":"+String(d.getMinutes()).
 const endLabel=(s,e)=>{const d=new Date(e);if(sod(e)!==sod(s)){if(d.getHours()===0&&d.getMinutes()===0&&sod(e)===addDays(sod(s),1))return"24:00";return"翌"+hm(e)}return hm(e)};
 const hrs=ms=>{const h=Math.round(ms/H*2)/2;return(h%1?h.toFixed(1):h)};
 const md=t=>{const d=new Date(t);return`${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）`};
+const plRange=x=>{const a=new Date(x.start),b=new Date(x.end-DAYMS);if(sod(x.start)===sod(x.end-DAYMS))return`${a.getMonth()+1}/${a.getDate()}`;
+  return`${a.getMonth()+1}/${a.getDate()}–${a.getMonth()===b.getMonth()?"":(b.getMonth()+1)+"/"}${b.getDate()}`};
+const plOn=(d0,d1)=>plans.filter(x=>x.start<d1&&x.end>d0&&d1>Date.now());   // 今日以降の日だけ
 const overlap=(s,e,a,b)=>Math.max(0,Math.min(e,b)-Math.max(s,a));
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const isUp=x=>x.status==="upcoming";
@@ -742,7 +795,7 @@ function renderWeek(){
     const segs=streams.filter(x=>x.end>d0&&x.start<d1);
     const tot=segs.filter(x=>!isUp(x)).reduce((acc,x)=>acc+overlap(x.start,x.end,d0,d1),0);
     const cls=(dw===6?" sat":dw===0?" sun":"")+(dd===today?" today":"");
-    head+=`<div class="dh${cls}"><span class="dd">${new Date(dd).getDate()}</span><span class="dw">${WD[dw]}</span><span class="dt">${tot?hrs(tot)+"h":""}</span>${deadlines.filter(x=>x.time>=d0&&x.time<d1).map(x=>`<button class="dl-tag" data-id="${x.id}" aria-label="締切 ${esc(x.title)}">締切</button>`).join("")}</div>`;
+    head+=`<div class="dh${cls}"><span class="dd">${new Date(dd).getDate()}</span><span class="dw">${WD[dw]}</span><span class="dt">${tot?hrs(tot)+"h":""}</span>${deadlines.filter(x=>x.time>=d0&&x.time<d1).map(x=>`<button class="dl-tag" data-id="${x.id}" aria-label="締切 ${esc(x.title)}">締切</button>`).join("")}${plOn(dd,addDays(dd,1)).slice(0,1).map(x=>`<button class="pl-tag" data-id="${x.id}" aria-label="予定 ${esc(x.title)}">予定</button>`).join("")}</div>`;
     body+=`<div class="col${dd===today?" today":""}">`;
     segs.forEach(x=>{
       const a=Math.max(x.start,d0),b=Math.min(x.end,d1);
@@ -795,7 +848,7 @@ function renderMonth(){
     const out=d0<m0||d0>=m1;
     const dn=String(new Date(d0).getDate()).padStart(2,"0");
     h+=`<button class="mc${out?" out":""}${started.length?" has":""}${d0===today?" today":""}" data-day="${d0}" aria-label="${md(d0)}、配信${started.length}件。週表示を開く"${out?' tabindex="-1"':""}>
-      ${tiles}<span class="mn">${dn}</span>${tot?`<span class="mh">${hrs(tot)}h</span>`:""}${deadlines.some(x=>x.time>=d0&&x.time<d1)?'<span class="dl-badge">締切</span>':""}</button>`;
+      ${tiles}<span class="mn">${dn}</span>${tot?`<span class="mh">${hrs(tot)}h</span>`:""}${(()=>{const pl=plOn(d0,d1).length?'<span class="pl-badge">予定</span>':"",dlb=deadlines.some(x=>x.time>=d0&&x.time<d1)?'<span class="dl-badge">締切</span>':"";return pl||dlb?`<span class="mbadges">${pl}${dlb}</span>`:""})()}</button>`;
   }
   $("view").innerHTML=h+"</div>";
   summary(m0,m1);
@@ -807,8 +860,17 @@ function renderDeadlines(){
   el.innerHTML=`<span class="dl-h">締切が近いもの</span>`+list.map(x=>{const days=Math.ceil((sod(x.time)-sod(now))/DAYMS);
     return`<button class="dl-item" data-id="${x.id}"><span class="dl-left">${days<=0?"今日":"あと"+days+"日"}</span><span class="dl-title">${x.shared?'<i class="dl-all">全員</i>':""}${esc(x.title)}</span><span class="dl-date">${md(x.time)} ${hm(x.time)}</span></button>`}).join("");
 }
+function renderPlans(){
+  const now=Date.now(),el=$("plans");
+  el.hidden=!plans.length;
+  el.innerHTML=`<span class="dl-h">これからの予定</span>`+plans.slice(0,5).map(x=>{
+    const days=Math.ceil((x.start-sod(now))/DAYMS);
+    const when=x.start<=now?"開催中":days<=0?"今日":days===1?"明日":`あと${days}日`;
+    return`<button class="dl-item" data-id="${x.id}"><span class="pl-left">${plRange(x)}</span><span class="dl-title">${x.shared?'<i class="dl-all">全員</i>':""}${esc(x.title)}</span><span class="dl-date">${when}${x.time?" ・ "+esc(x.time)+"〜":""}</span></button>`}).join("")
+    +(plans.length>5?`<span class="dl-date pl-more" style="text-align:center">ほか ${plans.length-5} 件はカレンダーの「予定」の印から</span>`:"");
+}
 function render(){
-  renderDeadlines();
+  renderDeadlines();renderPlans();
   $("v-week").setAttribute("aria-selected",view==="week");
   $("v-month").setAttribute("aria-selected",view==="month");
   $("view").classList.remove("v-week","v-month","v-list");$("view").classList.add("v-"+view);
@@ -823,6 +885,7 @@ let backView="week";
 
 function openSheet(ev){
   const tag=$("sh-tag"),st=$("sh-status"),dl=$("sh-dl"),link=$("sh-link"),ex=$("sh-extra");
+  link.hidden=false;
   ex.innerHTML="";st.hidden=true;$("sh-thumb").hidden=true;
   if(ev.kind==="stream"){
     tag.className="tag gx";tag.textContent=ev.game;
@@ -848,6 +911,15 @@ function openSheet(ev){
     if(!ev.own&&!ev.manual&&canEdit&&/youtube\.com|youtu\.be/.test(ev.url)){
       ex.innerHTML+=`<p class="ex-h"><span>この配信</span>${opt}</p><div class="ex-self">${del(ev.url,ev.title,"この配信を除外")}</div>`;
     }
+  }else if(ev.kind==="plan"){
+    tag.className="tag pl";tag.removeAttribute("style");tag.textContent="予定メモ";
+    const days=Math.ceil((ev.start-sod(Date.now()))/DAYMS);
+    st.hidden=false;st.textContent=ev.start<=Date.now()?"開催中":days<=0?"今日":`あと${days}日`;
+    $("sh-title").textContent=ev.title;
+    const a=ev.start,b=ev.end-DAYMS;
+    dl.innerHTML=`<dt>日程</dt><dd>${md(a)}${sod(a)===sod(b)?"":" – "+md(b)}</dd>`+(ev.time?`<dt>時刻</dt><dd>${esc(ev.time)}〜</dd>`:"")+(ev.shared?`<dt>対象</dt><dd>MECHATU-A 全員</dd>`:"");
+    link.hidden=!ev.url;if(ev.url){link.href=ev.url;link.textContent="告知などを開く ↗"}
+    ex.innerHTML=(ev.note?`<p class="pl-note">${esc(ev.note)}</p>`:"")+(document.body.classList.contains("edit")?`<button type="button" class="pl-del" data-id="${ev.id}">このメモを消す</button>`:"");
   }else if(ev.kind==="deadline"){
     tag.className="tag dl";tag.removeAttribute("style");tag.textContent="締切";
     const days=Math.ceil((sod(ev.time)-sod(Date.now()))/DAYMS);
@@ -895,8 +967,19 @@ $("view").addEventListener("click",e=>{
   if(d){cursor=+d.dataset.day+12*H;view="week";render()}
 });
 $("deadlines").addEventListener("click",e=>{const b=e.target.closest("[data-id]");if(b){const ev=events.find(x=>x.id===b.dataset.id);if(ev)openSheet(ev)}});
+$("plans").addEventListener("click",e=>{const b=e.target.closest("[data-id]");if(b){const ev=events.find(x=>x.id===b.dataset.id);if(ev)openSheet(ev)}});
 // コラボ相手の枠の除外（GitHub の Issue で登録。押すと確認表示 → もう一度押すと登録画面へ）
 $("sh-extra").addEventListener("click",e=>{
+  // 予定メモを消す（GitHub の Issue で登録。押すと確認表示 → もう一度押すと登録画面へ）
+  const pd=e.target.closest(".pl-del");
+  if(pd){
+    const ev=events.find(x=>x.id===pd.dataset.id);if(!ev)return;
+    if(!pd.classList.contains("armed")){pd.classList.add("armed");pd.textContent="押すと消す";return}
+    const r=ev.raw,title=`[追加] 予定メモを消す ${r.start}`,body=`type: unplan\nstart: ${r.start}\ntitle: ${r.title}\n\n（このまま Create を押してください。内容を書き換えないでください）`;
+    if(typeof REPO==="undefined"||!REPO){pd.textContent="サンプルのため送信しません";pd.disabled=true;return}
+    window.open(`https://github.com/${ev.shared?SHARED_REPO():REPO}/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`,"_blank","noopener");
+    pd.textContent="GitHub で Create を押すと消えます";pd.disabled=true;return;
+  }
   const o=e.target.closest(".ex-opt");
   if(o){const on=o.getAttribute("aria-expanded")!=="true";o.setAttribute("aria-expanded",on);o.textContent=on?"閉じる":"除外…";
     let n=o.parentElement.nextElementSibling;if(n)n.querySelectorAll(".ex-del").forEach(b=>{b.hidden=!on;b.classList.remove("armed");b.textContent=b.dataset.label||b.textContent;b.dataset.label=b.textContent});return}
@@ -994,6 +1077,16 @@ const SHOW_ADD_ALWAYS=false; // 「追加」ボタンは URL の末尾に #edit 
       title=`[追加] 締切 ${d}`;lines=[`type: deadline`,`deadline: ${d}T${tm}:00+09:00`,`title: ${ti}`];
       if($("f-dscope").value==="all")target=SHARED_REPO();   // 全員分はまとめページのリポジトリに登録
       if(u)lines.push(`url: ${u}`);
+    }else if(t==="plan"){
+      const ti=$("f-ptitle").value.trim(),d=$("f-pstart").value,de=$("f-pend").value,tm=$("f-ptime").value,no=$("f-pnote").value.trim(),u=$("f-purl").value.trim();
+      if(!ti||!d){err.textContent="内容と開始日を入れてください。";return}
+      if(de&&de<d){err.textContent="終了日が開始日より前になっています。";return}
+      title=`[追加] 予定メモ ${d}`;lines=[`type: plan`,`start: ${d}`,`title: ${ti}`];
+      if(de&&de!==d)lines.push(`end: ${de}`);
+      if(tm)lines.push(`time: ${tm}`);
+      if(no)lines.push(`note: ${no}`);
+      if(u)lines.push(`url: ${u}`);
+      if($("f-pscope").value==="all")target=SHARED_REPO();
     }else{
       const u=$("f-x").value.trim(),id=xId(u);if(!id){err.textContent="X のポストの URL を入れてください（/status/ を含むもの）。";return}
       title=`[追加] ポスト ${id}`;lines=[`type: post`,`url: ${u}`,`time: ${jst(xTime(id))}`,`announce: ${$("f-ann").checked?"yes":"no"}`];
