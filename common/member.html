@@ -485,6 +485,9 @@ h1{font-size:1rem;letter-spacing:.02em;white-space:nowrap}
 
 /* スマホ：ステータスバー・ホームバーの分だけ上下に余白。下の帯に凡例を置き、追加ボタンがある端末はその右に並べる */
 @media (max-width:899px){
+  #plans{display:none}   /* スマホは上のメモを締切だけにする（予定メモはカレンダーの印と詳細で見る） */
+  /* スマホの並び：名前 → 締切のメモ → 集計 → 月の切り替え → カレンダー（月の表示をバインダーのすぐ上に） */
+  .side>.top{order:1} .side>#deadlines{order:2;margin-top:8px} .side>.summary{order:3} .side>.nav{order:4} .side>.note{order:5}
   .wrap{padding-top:calc(10px + env(safe-area-inset-top,0px));padding-bottom:calc(58px + env(safe-area-inset-bottom,0px))}
   .side .note{display:flex;align-items:center;gap:8px;position:fixed;z-index:5;
     left:calc(16px + env(safe-area-inset-left,0px));right:calc(16px + env(safe-area-inset-right,0px));
