@@ -110,8 +110,10 @@ h1{margin:0;font-family:var(--font-body);font-weight:700;font-size:clamp(1.3rem,
 /* ---- 予定メモ（先の予定。過ぎたものは表示しない）---- */
 .pl-panel{background:var(--paper);background-image:none}
 .pl-panel::before{background:repeating-linear-gradient(90deg,rgb(var(--memo-d-rgb) / .95) 0 6px,rgb(var(--memo-d-rgb) / .7) 6px 12px)}
-.pl-left{grid-row:1 / 3;font-family:var(--font-label);font-weight:600;font-size:.8rem;color:var(--main-d);background:var(--paper);white-space:nowrap;
-  min-width:5.6em;padding:2px 5px;text-align:center;border:1.5px dashed var(--main);border-radius:3px;font-variant-numeric:tabular-nums}
+.pl-left{grid-row:1 / 3;font-family:var(--font-label);font-weight:600;font-size:.85rem;color:var(--main-d);background:var(--paper);white-space:nowrap;
+  width:5.6em;padding:3px 2px;text-align:center;border:1.5px dashed var(--main);border-radius:3px;font-variant-numeric:tabular-nums;line-height:1.25;
+  height:2.5em;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center}   /* 締切の「あと○日」と同じ幅、高さは2行分でそろえる */
+.pl-left small{font-size:.72em;font-weight:600;opacity:.85}
 .pl-tag{margin-top:3px;border:1px dashed var(--main);background:var(--paper);color:var(--main-d);font-size:.6rem;font-weight:700;padding:0 5px;line-height:1.4;border-radius:99px}
 .pl-badge{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.58rem;font-weight:700;color:var(--main-d);background:var(--paper);border:1px dashed var(--main);border-radius:99px;padding:0 5px;line-height:1.45}
 .mbadges{position:absolute;left:3px;bottom:3px;max-width:calc(100% - 3px - clamp(1.4rem,6vw,2.6rem));   /* 右下の日付の数字にかからない幅 */
@@ -793,10 +795,11 @@ const endLabel=(s,e)=>{const d=new Date(e);if(sod(e)!==sod(s)){if(d.getHours()==
 const hrs=ms=>{const h=Math.round(ms/H*2)/2;return(h%1?h.toFixed(1):h)};
 const md=t=>{const d=new Date(t);return`${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）`};
 const mdShort=(t,prev)=>{const d=new Date(t);return prev!=null&&new Date(prev).getMonth()===d.getMonth()?`${d.getDate()}`:`${d.getMonth()+1}/${d.getDate()}`};
+// 左の枠：1行目に日付、2行目に補足（期間の終わり／ほかの日数）。締切の枠と同じ幅に収める
 const plRange=x=>{
-  if(x.mode==="dates")return mdShort(x.days[0].t)+(x.days.length>1?` ほか${x.days.length-1}日`:"");
+  if(x.mode==="dates")return`${mdShort(x.days[0].t)}`+(x.days.length>1?`<small>ほか${x.days.length-1}日</small>`:"");
   if(x.mode==="single")return mdShort(x.start);
-  return`${mdShort(x.start)}–${mdShort(x.last,x.start)}`};
+  return`${mdShort(x.start)}<small>〜${mdShort(x.last,x.start)}</small>`};
 // その日に付ける印（締切が先、予定メモが後）。締切は a〜b の時刻の範囲（週表示は朝6時区切り）で、まだ過ぎていないものだけ
 function dayItems(dd,a,b){
   const now=Date.now();
