@@ -118,6 +118,7 @@ h1{margin:0;font-family:var(--font-body);font-weight:700;font-size:clamp(1.3rem,
   z-index:2;display:flex;flex-direction:column;align-items:flex-start;gap:2px;pointer-events:none}
 .mbadges .dl-badge{position:static}
 .pl-short{display:none}
+@media (max-width:480px){.pl-more-b{display:none}}   /* スマホの月表示は「予定2」のように件数だけ */
 .mbadges .dl-badge{white-space:nowrap}
 /* スマホの月表示はマスが小さいので、タイトルではなく「予定」とだけ出す */
 @media (max-width:480px){.pl-badge{font-size:.5rem;padding:0 3px}.pl-full{display:none}.pl-short{display:inline}
@@ -127,7 +128,10 @@ h1{margin:0;font-family:var(--font-body);font-weight:700;font-size:clamp(1.3rem,
 .dh{position:relative}
 .pl-line{position:absolute;left:0;right:-1px;bottom:0;border-bottom:2px dotted var(--main);pointer-events:none}
 .pl-line.st{left:50%}.pl-line.en{right:50%}
-.pd-row{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr) minmax(0,1fr) auto;gap:6px;align-items:center}
+/* 1行目：日付・時刻・×、2行目：一言 */
+.pd-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto;grid-template-areas:"d t x" "l l l";gap:4px 6px;align-items:center;
+  padding-bottom:6px;border-bottom:1px dashed var(--grid-2)}
+.pd-row>.date-wrap:first-child{grid-area:d}.pd-row>.date-wrap:nth-child(2){grid-area:t}.pd-row>.pd-label{grid-area:l}.pd-row>.pd-del{grid-area:x}
 .pd-del{border:1px solid var(--grid-2);background:var(--paper);color:var(--ink-soft);border-radius:99px;width:28px;height:28px;font-size:.9rem;line-height:1}
 .pd-add{align-self:flex-start;border:1px dashed var(--main);background:var(--paper);color:var(--main-d);border-radius:99px;font-size:.78rem;font-weight:700;padding:4px 12px}
 #f-pdates{display:flex;flex-direction:column;gap:6px}
@@ -206,13 +210,14 @@ h1{margin:0;font-family:var(--font-body);font-weight:700;font-size:clamp(1.3rem,
 .mc{position:relative;border:0;padding:0;aspect-ratio:1;max-width:100%;min-width:0;overflow:hidden;border-radius:6px;
   background:rgb(var(--empty-rgb) / .85);display:flex;flex-direction:column;gap:2px}
 .mc.out{visibility:hidden}
-.mc:hover .th{filter:brightness(1.06)}
+.th{cursor:pointer}
+.th:hover{filter:brightness(1.12)}   /* サムネイルを押すと配信の詳細、余白（日付のあたり）を押すと週表示 */
 .th{position:relative;flex:1;min-height:0;overflow:hidden;transition:filter .15s}
 .th img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .ph{position:absolute;inset:0;display:grid;place-items:center;overflow:hidden}
 .ph b{position:relative;font-family:var(--font-body);font-weight:700;font-size:clamp(.55rem,2.4vw,1rem);opacity:.85;color:var(--ev-ink)}
 .mn{position:absolute;right:5px;bottom:1px;z-index:2;font-family:var(--font-label);font-weight:600;font-size:clamp(1rem,4.6vw,2rem);line-height:1.05;
-  font-variant-numeric:tabular-nums;color:var(--empty-num);pointer-events:none}
+  font-variant-numeric:tabular-nums;color:var(--empty-num);cursor:pointer}   /* 日付の数字を押すと週表示 */
 .mc.has .mn{color:#fff;text-shadow:0 0 3px rgb(var(--shade-rgb) / .7),0 1px 4px rgb(var(--shade-rgb) / .5)}
 .mc.today{outline:3px solid var(--main);outline-offset:-3px}
 .mh{position:absolute;left:4px;top:4px;z-index:2;font-family:var(--font-label);font-size:.72rem;font-weight:600;color:var(--ink);background:rgb(255 255 255 / .88);
@@ -302,6 +307,14 @@ h1{margin:0;font-family:var(--font-body);font-weight:700;font-size:clamp(1.3rem,
 .form input[type=url],.form input[type=text],.form input[type=date],.form input[type=time],.form select{
   width:100%;min-width:0;font:inherit;font-size:16px;color:var(--ink);background:var(--paper);border:1.5px solid var(--grid-2);border-radius:8px;padding:8px 10px}
 .form input:focus,.form select:focus{outline:2px solid var(--main);outline-offset:0;border-color:transparent}
+/* 日付：数字8桁（20260716）でも打てる入力欄。右のボタンからカレンダーでも選べる */
+.date-wrap{position:relative;display:block;min-width:0}
+.form .date-wrap input.date-txt{padding-right:34px;font-variant-numeric:tabular-nums}
+.form .date-wrap input.date-txt.bad{border-color:#d9a0ad}
+.form .date-wrap input.date-native{position:absolute;left:0;bottom:0;width:100%;height:100%;opacity:0;pointer-events:none;padding:0;border:0}
+.date-pick{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:28px;height:28px;border:0;background:transparent;color:var(--main-d);padding:4px;border-radius:6px}
+.date-pick:hover{background:var(--main-xl)}
+.date-pick svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6}
 .chk{display:flex;align-items:center;gap:8px;font-size:.88rem}
 .chk input{width:18px;height:18px;accent-color:var(--main)}
 .help{margin:0;font-size:.76rem;color:var(--ink-soft);line-height:1.6}
@@ -460,7 +473,8 @@ h1{font-size:1rem;letter-spacing:.02em;white-space:nowrap}
 .wk-head{flex:none;height:var(--wkh,50px);overflow:hidden}
 .dh{position:relative;padding:5px 2px 3px}
 .dl-tag{position:absolute;top:2px;right:1px;margin:0}
-.pl-tag{position:absolute;top:3px;left:2px;margin:0;padding:0;width:9px;height:9px;font-size:0;border-radius:50%}   /* スマホは列が細いので、文字なしの点だけ */
+.pl-tags{position:absolute;top:3px;left:2px;display:flex;gap:2px}
+.pl-tag{margin:0;padding:0;width:9px;height:9px;font-size:0;border-radius:50%}   /* スマホは列が細いので、文字なしの点だけ（重なる日は点が並ぶ） */
 .pl-panel{margin-top:10px}
 .pl-more{display:none}
 .mo-head{flex:none}
@@ -500,7 +514,8 @@ h1{font-size:1rem;letter-spacing:.02em;white-space:nowrap}
   .dl-item{padding:6px 0 3px}
   .pl-more{display:block}
   /* PC：見出しの一番下に、記入したタイトルを1行で（長い分は…で省略。全文は押すと詳細に出る） */
-  .pl-tag{width:auto;height:auto;font-size:.6rem;padding:0 6px;border-radius:99px;left:4px;right:4px;top:auto;bottom:4px;
+  .pl-tags{top:auto;bottom:4px;left:4px;right:4px;flex-direction:column;gap:2px}
+  .pl-tag{width:auto;height:auto;font-size:.6rem;padding:0 6px;border-radius:99px;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
   .note{display:block}
   .card{margin-top:14px;padding:26px 8px 8px}
@@ -578,7 +593,7 @@ h1{font-size:1rem;letter-spacing:.02em;white-space:nowrap}
       </div>
       <div class="fgroup" data-type="schedule" hidden>
         <div class="row2">
-          <label class="fld"><span>日付</span><input type="date" id="f-date"></label>
+          <label class="fld"><span>日付</span><input type="date" min="2000-01-01" max="2099-12-31" id="f-date"></label>
           <label class="fld"><span>開始時刻</span><input type="time" id="f-time"></label>
         </div>
         <label class="fld"><span>タイトル</span><input type="text" id="f-title" placeholder="大会本番 など"></label>
@@ -598,7 +613,7 @@ h1{font-size:1rem;letter-spacing:.02em;white-space:nowrap}
       <div class="fgroup" data-type="deadline" hidden>
         <label class="fld"><span>内容</span><input type="text" id="f-dtitle" placeholder="〇〇グッズ 受注締切 など"></label>
         <div class="row2">
-          <label class="fld"><span>締切日</span><input type="date" id="f-ddate"></label>
+          <label class="fld"><span>締切日</span><input type="date" min="2000-01-01" max="2099-12-31" id="f-ddate"></label>
           <label class="fld"><span>締切時刻</span><input type="time" id="f-dtime" value="23:59"></label>
         </div>
         <label class="fld"><span>告知ポストか販売ページの URL</span><input type="url" id="f-durl" placeholder="https://x.com/…/status/…" autocomplete="off"></label>
@@ -608,10 +623,10 @@ h1{font-size:1rem;letter-spacing:.02em;white-space:nowrap}
       <div class="fgroup" data-type="plan" hidden>
         <label class="fld"><span>内容</span><input type="text" id="f-ptitle" placeholder="〇〇杯 本番／△△鯖 参加 など"></label>
         <label class="fld"><span>日程</span><select id="f-pmode"><option value="single">1日だけ</option><option value="range">期間（開始日〜終了日）</option><option value="dates">複数の日（飛び飛び）</option></select></label>
-        <div class="pm" data-pm="single"><label class="fld"><span>日付</span><input type="date" id="f-pday"></label></div>
+        <div class="pm" data-pm="single"><label class="fld"><span>日付</span><input type="date" min="2000-01-01" max="2099-12-31" id="f-pday"></label></div>
         <div class="pm row2" data-pm="range" hidden>
-          <label class="fld"><span>開始日</span><input type="date" id="f-pstart"></label>
-          <label class="fld"><span>終了日</span><input type="date" id="f-pend"></label>
+          <label class="fld"><span>開始日</span><input type="date" min="2000-01-01" max="2099-12-31" id="f-pstart"></label>
+          <label class="fld"><span>終了日</span><input type="date" min="2000-01-01" max="2099-12-31" id="f-pend"></label>
         </div>
         <div class="pm fld" data-pm="dates" hidden>
           <span>日付・時刻・一言（時刻と一言は任意：予選・本番 など）</span>
@@ -821,9 +836,10 @@ function renderList(){
 function flags(x){return(isUp(x)?" up":"")+(x.status==="live"?" live":"")+(x.collabs.length?" co":"")+(x.own?"":" guest")}
 
 let HH=22,COLW=100;
-let WKH=56; // 週表示の見出しの高さ（px）。PC は予定メモのタイトルを入れる分だけ高くする
+let WKH=56; // 週表示の見出しの高さ（px）。PC は予定メモのタイトルの行数（その週で一番多い日）だけ高くする
+const PL_MAX=3;   // 1日に並べる予定メモの印の数（超える分は「ほか○件」）
 let MEAS=0;
-function measure(){const v=$("view");MEAS=v?v.clientHeight:0;WKH=window.innerWidth>=900?74:56;
+function measure(plRows=0){const v=$("view");MEAS=v?v.clientHeight:0;WKH=window.innerWidth>=900?58+17*Math.min(plRows,PL_MAX):56;
   // カレンダー欄の残りの高さを24等分して1時間の高さにする（最小12px）
   const avail=v?v.clientHeight-WKH-2:0;
   // 線がにじまないよう整数ピクセル（偶数）にそろえる
@@ -834,7 +850,7 @@ function measure(){const v=$("view");MEAS=v?v.clientHeight:0;WKH=window.innerWid
 const OFF=6*H;
 const dayStartOf=t=>sod(t-OFF)+OFF;   // その時刻が属する「1日」の始まり（朝6時）
 function renderWeek(){
-  measure();
+  {const w0=sow(cursor-OFF);let rows=0;for(let i=0;i<7;i++)rows=Math.max(rows,plMarks(addDays(w0,i)).tags.length);measure(rows)}
   const ws=sow(cursor-OFF),we=addDays(ws,7),today=sod(Date.now()-OFF);
   const s=new Date(ws),e=new Date(addDays(ws,6));
   $("label").innerHTML=`<small>${s.getFullYear()}年</small><span class="wk-rg">${s.getMonth()+1}/${s.getDate()}–${e.getMonth()+1}/${e.getDate()}</span>`;
@@ -846,7 +862,9 @@ function renderWeek(){
     const segs=streams.filter(x=>x.end>d0&&x.start<d1);
     const tot=segs.filter(x=>!isUp(x)).reduce((acc,x)=>acc+overlap(x.start,x.end,d0,d1),0);
     const cls=(dw===6?" sat":dw===0?" sun":"")+(dd===today?" today":"");
-    head+=`<div class="dh${cls}"><span class="dd">${new Date(dd).getDate()}</span><span class="dw">${WD[dw]}</span><span class="dt">${tot?hrs(tot)+"h":""}</span>${deadlines.filter(x=>x.time>=d0&&x.time<d1&&x.time>=Date.now()).map(x=>`<button class="dl-tag" data-id="${x.id}" aria-label="締切 ${esc(x.title)}">締切</button>`).join("")}${(()=>{const pm=plMarks(dd);return pm.tags.slice(0,1).map(m=>`<button class="pl-tag" data-id="${m.x.id}" aria-label="予定 ${esc(m.t)}" title="${esc(m.t)}">${esc(m.t)}</button>`).join("")+(pm.line?`<span class="pl-line${pm.line==="mid"?"":" "+pm.line}"></span>`:"")})()}</div>`;
+    head+=`<div class="dh${cls}"><span class="dd">${new Date(dd).getDate()}</span><span class="dw">${WD[dw]}</span><span class="dt">${tot?hrs(tot)+"h":""}</span>${deadlines.filter(x=>x.time>=d0&&x.time<d1&&x.time>=Date.now()).map(x=>`<button class="dl-tag" data-id="${x.id}" aria-label="締切 ${esc(x.title)}">締切</button>`).join("")}${(()=>{const pm=plMarks(dd),tg=pm.tags,show=tg.length>PL_MAX?tg.slice(0,PL_MAX-1):tg;
+      const btn=(m,txt)=>`<button class="pl-tag" data-id="${m.x.id}" aria-label="予定 ${esc(m.t)}" title="${esc(m.t)}">${esc(txt)}</button>`;
+      return(tg.length?`<span class="pl-tags">${show.map(m=>btn(m,m.t)).join("")}${tg.length>show.length?btn(tg[show.length],`ほか${tg.length-show.length}件`):""}</span>`:"")+(pm.line?`<span class="pl-line${pm.line==="mid"?"":" "+pm.line}"></span>`:"")})()}</div>`;
     body+=`<div class="col${dd===today?" today":""}">`;
     segs.forEach(x=>{
       const a=Math.max(x.start,d0),b=Math.min(x.end,d1);
@@ -895,11 +913,12 @@ function renderMonth(){
     // 配信開始日のマスにサムネイルを置く（複数あれば縦に分割、最大3枠）
     const started=streams.filter(x=>x.start>=d0&&x.start<d1).sort((a,b)=>a.start-b.start);
     const tot=started.filter(x=>!isUp(x)).reduce((acc,x)=>acc+(x.end-x.start),0);
-    const tiles=started.slice(0,3).map(x=>`<span class="th${flags(x)}">${x.thumb?`<img src="${esc(x.thumb)}" alt="" loading="lazy">`:`<span class="ph gx"><b>${esc(gShort(x.game))}</b></span>`}${isUp(x)?'<span class="upl">予定</span>':""}</span>`).join("");
+    const tiles=started.slice(0,3).map(x=>`<span class="th${flags(x)}" data-id="${x.id}" title="${esc(cleanTitle(x.title))}">${x.thumb?`<img src="${esc(x.thumb)}" alt="" loading="lazy">`:`<span class="ph gx"><b>${esc(gShort(x.game))}</b></span>`}${isUp(x)?'<span class="upl">予定</span>':""}</span>`).join("");
     const out=d0<m0||d0>=m1;
     const dn=String(new Date(d0).getDate()).padStart(2,"0");
     h+=`<button class="mc${out?" out":""}${started.length?" has":""}${d0===today?" today":""}" data-day="${d0}" aria-label="${md(d0)}、配信${started.length}件。週表示を開く"${out?' tabindex="-1"':""}>
-      ${tiles}<span class="mn">${dn}</span>${tot?`<span class="mh">${hrs(tot)}h</span>`:""}${(()=>{const pt=plMarks(d0).tags[0],pl=pt?`<span class="pl-badge"><span class="pl-full">${esc(pt.t)}</span><span class="pl-short">予定</span></span>`:"",dlb=deadlines.some(x=>x.time>=d0&&x.time<d1&&x.time>=Date.now())?'<span class="dl-badge">締切</span>':"";return pl||dlb?`<span class="mbadges">${pl}${dlb}</span>`:""})()}</button>`;
+      ${tiles}<span class="mn">${dn}</span>${tot?`<span class="mh">${hrs(tot)}h</span>`:""}${(()=>{const tg=plMarks(d0).tags,sh=tg.length>2?tg.slice(0,1):tg;
+      const pl=tg.length?sh.map((m,i)=>`<span class="pl-badge${i?" pl-more-b":""}"><span class="pl-full">${esc(m.t)}</span><span class="pl-short">予定${!i&&tg.length>1?tg.length:""}</span></span>`).join("")+(tg.length>sh.length?`<span class="pl-badge pl-more-b"><span class="pl-full">ほか${tg.length-sh.length}件</span></span>`:""):"",dlb=deadlines.some(x=>x.time>=d0&&x.time<d1&&x.time>=Date.now())?'<span class="dl-badge">締切</span>':"";return pl||dlb?`<span class="mbadges">${pl}${dlb}</span>`:""})()}</button>`;
   }
   $("view").innerHTML=h+"</div>";
   summary(m0,m1);
@@ -1115,13 +1134,70 @@ const SHOW_ADD_ALWAYS=false; // 「追加」ボタンは URL の末尾に #edit 
   $("f-x").addEventListener("input",()=>{const id=xId($("f-x").value);
     if(!id){$("f-xtime").textContent="";return}
     const t=new Date(xTime(id));$("f-xtime").textContent=`投稿時刻：${t.getFullYear()}/${t.getMonth()+1}/${t.getDate()} ${t.getHours()}:${pad(t.getMinutes())}`});
+  // 日付の入力：ブラウザ標準の日付欄は年が6桁まで入り、年→月の移動が必要になるため、
+  // 「20260716」と続けて打てる文字の欄に置き換える（値は元の日付欄に YYYY-MM-DD で入れるので、登録の処理はそのまま）
+  function enhanceDate(d){
+    if(d._enh)return;d._enh=true;
+    const w=document.createElement("span");w.className="date-wrap";
+    const t=document.createElement("input");t.type="text";t.inputMode="numeric";t.autocomplete="off";t.className="date-txt";
+    t.placeholder="20260716";t.setAttribute("aria-label",(d.getAttribute("aria-label")||"日付")+"（数字8桁で入力）");
+    const b=document.createElement("button");b.type="button";b.className="date-pick";b.setAttribute("aria-label","カレンダーから選ぶ");
+    b.innerHTML='<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4.5" width="14" height="12.5" rx="2"/><path d="M3 8.5h14M7 2.5v4M13 2.5v4"/></svg>';
+    d.parentNode.insertBefore(w,d);w.append(t,d,b);d.tabIndex=-1;d.classList.add("date-native");d.setAttribute("aria-hidden","true");
+    const show=v=>{const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(v||"");return m?`${m[1]}/${m[2]}/${m[3]}`:""};
+    const sync=()=>{
+      let v=t.value.replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/[－.\-]/g,"/");
+      v=v.replace(/^(\d{4})\/(\d)\//,"$1/0$2/");                     // 2026/7/ → 2026/07/
+      const dg=v.replace(/\D/g,"").slice(0,8);
+      t.value=dg.length>6?`${dg.slice(0,4)}/${dg.slice(4,6)}/${dg.slice(6)}`:dg.length>4?`${dg.slice(0,4)}/${dg.slice(4)}`:dg;
+      const y=+dg.slice(0,4),mo=+dg.slice(4,6),da=+dg.slice(6,8),dt=new Date(y,mo-1,da);
+      const ok=dg.length===8&&dt.getFullYear()===y&&dt.getMonth()===mo-1&&dt.getDate()===da;
+      d.value=ok?`${dg.slice(0,4)}-${dg.slice(4,6)}-${dg.slice(6,8)}`:"";
+      t.classList.toggle("bad",dg.length===8&&!ok);
+    };
+    t.addEventListener("input",sync);
+    t.addEventListener("blur",()=>{const m=/^(\d{4})\/(\d{2})\/(\d)$/.exec(t.value);if(m){t.value=`${m[1]}/${m[2]}/0${m[3]}`;sync()}});   // 2026/07/6 → 06
+    d.addEventListener("change",()=>{t.value=show(d.value);t.classList.remove("bad")});
+    b.addEventListener("click",()=>{try{d.showPicker()}catch(e){d.focus()}});
+    d.form&&d.form.addEventListener("reset",()=>setTimeout(()=>{t.value=show(d.value);t.classList.remove("bad")}));
+  }
+  document.querySelectorAll('#add-form input[type=date]').forEach(enhanceDate);
+  // 時刻の入力：「2000」と打てば 20:00、「930」なら 9:30（表示は 09:30）。「20」だけなら欄を離れたときに 20:00
+  function enhanceTime(d){
+    if(d._enh)return;d._enh=true;
+    const w=document.createElement("span");w.className="date-wrap";
+    const t=document.createElement("input");t.type="text";t.inputMode="numeric";t.autocomplete="off";t.className="date-txt";
+    t.placeholder="2000";t.setAttribute("aria-label",(d.getAttribute("aria-label")||"時刻")+"（数字4桁で入力）");
+    const b=document.createElement("button");b.type="button";b.className="date-pick";b.setAttribute("aria-label","一覧から選ぶ");
+    b.innerHTML='<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l2.5 2"/></svg>';
+    d.parentNode.insertBefore(w,d);w.append(t,d,b);d.tabIndex=-1;d.classList.add("date-native");d.setAttribute("aria-hidden","true");
+    const set=(h,m)=>{const ok=h<24&&m<60;d.value=ok?`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`:"";t.classList.toggle("bad",!ok);return ok};
+    const sync=()=>{
+      let v=t.value.replace(/[０-９：]/g,c=>c==="："?":":String.fromCharCode(c.charCodeAt(0)-0xFEE0));
+      const dg=v.replace(/\D/g,"").slice(0,4);
+      t.value=dg.length===3?`${dg[0]}:${dg.slice(1)}`:dg.length===4?`${dg.slice(0,2)}:${dg.slice(2)}`:dg;
+      t.classList.remove("bad");
+      if(dg.length===4)set(+dg.slice(0,2),+dg.slice(2));
+      else if(dg.length===3)set(+dg[0],+dg.slice(1));
+      else d.value="";
+    };
+    t.addEventListener("input",sync);
+    t.addEventListener("blur",()=>{const dg=t.value.replace(/\D/g,"");
+      if(dg.length===1||dg.length===2){if(set(+dg,0))t.value=d.value}       // 20 → 20:00
+      else if(dg.length===3&&d.value)t.value=d.value});                       // 9:30 → 09:30
+    d.addEventListener("change",()=>{t.value=d.value;t.classList.remove("bad")});
+    b.addEventListener("click",()=>{try{d.showPicker()}catch(e){d.focus()}});
+    t.value=d.value;   // 締切の 23:59 など、最初から入っている値
+    d.form&&d.form.addEventListener("reset",()=>setTimeout(()=>{t.value=d.value;t.classList.remove("bad")}));
+  }
+  document.querySelectorAll('#add-form input[type=time]').forEach(enhanceTime);
   // 予定メモ：日程の種類の切り替えと、飛び飛びの日付の行
   const pmode=()=>{document.querySelectorAll("#add-form .pm").forEach(g=>g.hidden=g.dataset.pm!==$("f-pmode").value);
     $("f-ptime-l").hidden=$("f-pmode").value==="dates";};   // 複数の日は日ごとに時刻を入れる
   $("f-pmode").addEventListener("change",pmode);
   const addRow=()=>{const r=document.createElement("div");r.className="pd-row";
-    r.innerHTML='<input type="date" aria-label="日付"><input type="time" aria-label="時刻"><input type="text" placeholder="予選 など" aria-label="一言"><button type="button" class="pd-del" aria-label="この日付を消す">×</button>';
-    $("f-pdates").appendChild(r)};
+    r.innerHTML='<input type="date" min="2000-01-01" max="2099-12-31" aria-label="日付"><input type="time" aria-label="時刻"><input type="text" class="pd-label" placeholder="予選 など" aria-label="一言"><button type="button" class="pd-del" aria-label="この日付を消す">×</button>';
+    $("f-pdates").appendChild(r);r.querySelectorAll('input[type=date]').forEach(enhanceDate);r.querySelectorAll('input[type=time]').forEach(enhanceTime)};
   const resetRows=()=>{$("f-pdates").innerHTML="";addRow();addRow();pmode()};
   $("f-padd").addEventListener("click",addRow);
   $("f-pdates").addEventListener("click",e=>{const b=e.target.closest(".pd-del");if(b&&$("f-pdates").children.length>1)b.parentElement.remove()});
@@ -1158,7 +1234,7 @@ const SHOW_ADD_ALWAYS=false; // 「追加」ボタンは URL の末尾に #edit 
         title=`[追加] 予定メモ ${d}`;lines=[`type: plan`,`start: ${d}`,`title: ${ti}`];
         if(de!==d)lines.push(`end: ${de}`);
       }else{
-        const ds=[...document.querySelectorAll("#f-pdates .pd-row")].map(r=>({d:r.querySelector("input[type=date]").value,tm:r.querySelector("input[type=time]").value,l:r.querySelector("input[type=text]").value.trim().replace(/[\/／]/g,"・")})).filter(x=>x.d);
+        const ds=[...document.querySelectorAll("#f-pdates .pd-row")].map(r=>({d:r.querySelector("input[type=date]").value,tm:r.querySelector("input[type=time]").value,l:r.querySelector("input.pd-label").value.trim().replace(/[\/／]/g,"・")})).filter(x=>x.d);
         if(!ds.length){err.textContent="日付を1つ以上入れてください。";return}
         ds.sort((a,b)=>a.d<b.d?-1:1);
         title=`[追加] 予定メモ ${ds[0].d}`;lines=[`type: plan`,`start: ${ds[0].d}`,`title: ${ti}`,`dates: ${ds.map(x=>x.d+(x.tm?" "+x.tm:"")+(x.l?" "+x.l:"")).join(" / ")}`];
