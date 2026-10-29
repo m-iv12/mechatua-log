@@ -355,6 +355,7 @@ UNITS = {
     "カニハチミツ丼": ["@HibachiMana", "@KoyanagiRou", "@InamiRai"],
     "ざぶぅん": ["@HibachiMana", "@InamiRai"],
     "こやなみ": ["@KoyanagiRou", "@InamiRai"],
+    "酒やメロウ": ["@AkagiWen", "@KoyanagiRou"],          # 狂蘭メロコさんを含む3人組（メンバー外の人はここには書かない）
 }
 
 
