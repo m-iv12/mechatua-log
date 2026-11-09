@@ -188,6 +188,11 @@ h1{margin:0;font-family:var(--font-body);font-weight:700;font-size:clamp(1.3rem,
 .th.co::after{width:15px;height:15px}
 .ev .gl{font-family:var(--font-body);font-size:.66rem;border:1px solid currentColor;border-radius:99px;padding:0 5px;margin-top:2px;opacity:.85}
 .ev.guest{outline:1.5px dashed var(--main-d);outline-offset:-3px}
+.ev.cameo{opacity:.62}   /* 少しだけ参加：薄く */
+.th.cameo{opacity:.55}
+.cameo-b{display:inline-block;margin-left:6px;border:1px dashed var(--main);color:var(--main-d);background:var(--paper);border-radius:99px;font-size:.68rem;font-weight:700;padding:0 7px}
+.ex-cameo{border:1px solid var(--grid-2);background:var(--paper);color:var(--main-d);border-radius:99px;font-size:.7rem;font-weight:700;padding:2px 9px;margin-left:6px}
+.ex-cameo:disabled{opacity:.7;cursor:default}
 /* ポスト＝小さな丸、告知＝塗りつぶし */
 /* ポスト：投稿時刻の位置に、本文の冒頭1行を細い長方形で出す（本文がまだ取れていなければ「ポスト」） */
 .post{position:absolute;left:3px;right:3px;height:15px;margin-top:-7px;z-index:3;display:flex;align-items:center;gap:3px;
@@ -595,7 +600,8 @@ h1{font-size:1rem;letter-spacing:.02em;white-space:nowrap}
       </div>
       <div class="fgroup" data-type="collab">
         <label class="fld"><span>YouTube の URL（配信・動画）</span><input type="url" id="f-yt" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off"></label>
-        <p class="help">時刻・サムネイル・チャンネル名は自動で取得します。同じ時間に<span class="own-name"></span>の配信があれば「コラボ相手の枠」として付き、なければ「本人の枠なし」として表示されます。</p>
+        <label class="chk"><input type="checkbox" id="f-cameo">少しだけ参加（凸待ち・通話に一瞬出た など）</label>
+        <p class="help">時刻・サムネイル・チャンネル名は自動で取得します。同じ時間に<span class="own-name"></span>の配信があれば「コラボ相手の枠」として付き、なければ「本人の枠なし」として表示されます。<br>「少しだけ参加」にすると、前後に<span class="own-name"></span>の配信があってもコラボ相手としては付けず、単独の「少しだけ参加」として表示します（配信回数・時間には数えません）。</p>
       </div>
       <div class="fgroup" data-type="schedule" hidden>
         <div class="row2">
@@ -769,7 +775,7 @@ function normalize(d){
     const s=T(x.start),status=x.status||"done";
     let e=x.end?T(x.end):null,est=false;
     if(!e){if(status==="live")e=Math.max(now,s+30*6e4);else{e=s+2*H;est=true}}
-    return{id:"s"+i,kind:"stream",vkind:x.kind||"stream",status,est,own:x.own!==false,channel:x.channel||OWN,manual:!!x.manual,
+    return{id:"s"+i,kind:"stream",vkind:x.kind||"stream",status,est,own:x.own!==false,channel:x.channel||OWN,manual:!!x.manual,cameo:!!x.cameo,
       game:normGame(x.game||gameOf(x.title)),title:x.title||"",start:s,end:e,url:x.url||"https://www.youtube.com/",thumb:x.thumb||null,collabs:x.collabs||[]};
   });
   unifyGames(streams);
@@ -837,7 +843,7 @@ if(location.hash==="#month")view="month";if(location.hash==="#week")view="week";
 const $=id=>document.getElementById(id);
 
 function summary(a,b){
-  const all=streams.filter(e=>e.end>a&&e.start<b),ss=all.filter(x=>!isUp(x)),up=all.length-ss.length;
+  const all=streams.filter(e=>e.end>a&&e.start<b&&!e.cameo),ss=all.filter(x=>!isUp(x)),up=all.length-ss.length;   // 少しだけ参加は数えない
   const per={};let tot=0;
   ss.forEach(e=>{const o=overlap(e.start,e.end,a,b);per[e.game]=(per[e.game]||0)+o;tot+=o});
   const ranked=Object.entries(per).sort((x,y)=>y[1]-x[1]),top=ranked.slice(0,5),rest=ranked.slice(5).reduce((s,x)=>s+x[1],0);
@@ -874,7 +880,7 @@ function renderList(){
   });
   $("view").innerHTML=h+"</div>";$("view").scrollTop=0;
 }
-function flags(x){return(isUp(x)?" up":"")+(x.status==="live"?" live":"")+(x.collabs.length?" co":"")+(x.own?"":" guest")}
+function flags(x){return(isUp(x)?" up":"")+(x.status==="live"?" live":"")+(x.collabs.length?" co":"")+(x.own?"":" guest")+(x.cameo?" cameo":"")}
 
 let HH=22,COLW=100;
 let WKH=56; // 週表示の見出しの高さ（px）。PC は予定メモのタイトルの行数（その週で一番多い日）だけ高くする
@@ -1018,20 +1024,22 @@ function openSheet(ev){
     dl.innerHTML=`<dt>日付</dt><dd>${md(ev.start)}</dd>`+
       (isUp(ev)?`<dt>時間</dt><dd>${hm(ev.start)} 開始予定</dd>`
                :`<dt>時間</dt><dd>${hm(ev.start)} – ${ev.status==="live"?"配信中":endLabel(ev.start,ev.end)}</dd><dt>長さ</dt><dd>約${hrs(ev.end-ev.start)}時間</dd>`)+
-      `<dt>配信元</dt><dd>${esc(ev.channel)}${ev.own?"":"<span class=\"warn\">本人の枠なし</span>"}</dd>`;
+      `<dt>配信元</dt><dd>${esc(ev.channel)}${ev.own?"":ev.cameo?'<span class="cameo-b">少しだけ参加</span>':"<span class=\"warn\">本人の枠なし</span>"}</dd>`;
     link.href=ev.url;
     link.textContent=ev.manual?"X で告知を開く ↗":ev.own?`${OWN}の枠を開く ↗`:`${ev.channel} の枠を開く ↗`;
     // 「除外…」は追加ボタンを表示している端末（#edit）だけに出す
     const canEdit=document.body.classList.contains("edit");
-    const opt=canEdit?'<button type="button" class="ex-opt" aria-expanded="false">除外…</button>':"";
+    const opt=canEdit?'<button type="button" class="ex-opt" aria-expanded="false">変更…</button>':"";
     const del=(url,title,label)=>canEdit?`<button type="button" class="ex-del" data-url="${esc(url)}" data-title="${esc(title)}" hidden>${label}</button>`:"";
+    // 少しだけ参加（凸待ち・通話など）に変える／コラボの扱いに戻す
+    const cam=(url,title,on)=>canEdit&&/youtube\.com|youtu\.be/.test(url)?`<button type="button" class="ex-cameo ex-del-like" data-url="${esc(url)}" data-title="${esc(title)}" data-mode="${on?"cameo":"uncameo"}" hidden>${on?"少しだけ参加にする":"少しだけ参加をやめる"}</button>`:"";
     if(ev.collabs.length){
       ex.innerHTML=`<p class="ex-h"><span>コラボ相手の枠</span>${opt}</p><ul class="cl">`+ev.collabs.map(c=>
-        `<li><a href="${esc(c.url)}" target="_blank" rel="noopener"><b>${esc(c.channel)}</b><span>${esc(c.title||"")}</span><i aria-hidden="true">↗</i></a>${del(c.url,c.title||"","除外")}</li>`).join("")+"</ul>";
+        `<li><a href="${esc(c.url)}" target="_blank" rel="noopener"><b>${esc(c.channel)}</b><span>${esc(c.title||"")}</span><i aria-hidden="true">↗</i></a>${del(c.url,c.title||"","除外")}${cam(c.url,c.title||"",true)}</li>`).join("")+"</ul>";
     }
     // 本人の枠がない単独カード（手動の予定は除く）
     if(!ev.own&&!ev.manual&&canEdit&&/youtube\.com|youtu\.be/.test(ev.url)){
-      ex.innerHTML+=`<p class="ex-h"><span>この配信</span>${opt}</p><div class="ex-self">${del(ev.url,ev.title,"この配信を除外")}</div>`;
+      ex.innerHTML+=`<p class="ex-h"><span>この配信</span>${opt}</p><div class="ex-self">${del(ev.url,ev.title,"この配信を除外")}${cam(ev.url,ev.title,!ev.cameo)}</div>`;
     }
   }else if(ev.kind==="plan"){
     tag.className="tag pl";tag.removeAttribute("style");tag.textContent="予定メモ";
@@ -1103,8 +1111,17 @@ $("sh-extra").addEventListener("click",e=>{
     pd.textContent="GitHub で Create を押すと消えます";pd.disabled=true;return;
   }
   const o=e.target.closest(".ex-opt");
-  if(o){const on=o.getAttribute("aria-expanded")!=="true";o.setAttribute("aria-expanded",on);o.textContent=on?"閉じる":"除外…";
-    let n=o.parentElement.nextElementSibling;if(n)n.querySelectorAll(".ex-del").forEach(b=>{b.hidden=!on;b.classList.remove("armed");b.textContent=b.dataset.label||b.textContent;b.dataset.label=b.textContent});return}
+  if(o){const on=o.getAttribute("aria-expanded")!=="true";o.setAttribute("aria-expanded",on);o.textContent=on?"閉じる":"変更…";
+    let n=o.parentElement.nextElementSibling;if(n){n.querySelectorAll(".ex-del").forEach(b=>{b.hidden=!on;b.classList.remove("armed");b.textContent=b.dataset.label||b.textContent;b.dataset.label=b.textContent});n.querySelectorAll(".ex-cameo").forEach(b=>b.hidden=!on)}return}
+  const cb=e.target.closest(".ex-cameo");
+  if(cb){
+    const m=String(cb.dataset.url).match(/(?:v=|youtu\.be\/|\/live\/|\/shorts\/)([A-Za-z0-9_-]{11})/);if(!m)return;
+    const on=cb.dataset.mode==="cameo";
+    const title=`[追加] ${on?"少しだけ参加":"少しだけ参加をやめる"} ${m[1]}`,body=`type: ${cb.dataset.mode}\nurl: ${cb.dataset.url}\n\n（このまま Create を押してください。内容を書き換えないでください）\n対象：${cb.dataset.title}`;
+    if(typeof REPO==="undefined"||!REPO){cb.textContent="サンプルのため送信しません";cb.disabled=true;return}
+    window.open(`https://github.com/${REPO}/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`,"_blank","noopener");
+    cb.textContent="GitHub で Create を押すと変わります";cb.disabled=true;return;
+  }
   const b=e.target.closest(".ex-del");if(!b)return;
   if(!b.classList.contains("armed")){b.dataset.label=b.dataset.label||b.textContent;b.classList.add("armed");b.textContent="押すと除外";return}
   const m=String(b.dataset.url).match(/(?:v=|youtu\.be\/|\/live\/|\/shorts\/)([A-Za-z0-9_-]{11})/);if(!m)return;
@@ -1254,6 +1271,7 @@ const SHOW_ADD_ALWAYS=false; // 「追加」ボタンは URL の末尾に #edit 
     if(t==="collab"){
       const u=$("f-yt").value.trim();if(!ytId(u)){err.textContent="YouTube の動画・配信の URL を入れてください（watch?v= や /live/ を含むもの）。";return}
       title=`[追加] 他枠の配信 ${ytId(u)}`;lines=[`type: collab`,`url: ${u}`];
+      if($("f-cameo").checked)lines.push(`cameo: yes`);
     }else if(t==="schedule"){
       const d=$("f-date").value,tm=$("f-time").value,ti=$("f-title").value.trim();
       if(!d||!tm){err.textContent="日付と開始時刻を入れてください。";return}

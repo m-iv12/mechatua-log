@@ -1,7 +1,8 @@
 """ページの「追加」から作られた GitHub Issue の本文を読み、data/*.json に書き足す。
 
 本文の形式（1行1項目）:
-  type: collab | schedule | post | deadline | exclude
+  type: collab | schedule | post | deadline | exclude | plan | unplan | cameo | uncameo
+  cameo: yes                          (collab：少しだけ参加。コラボ相手として付けず単独で表示)
   url: ...
   start: 2026-11-03T20:00:00+09:00   (schedule)
   title: ... / game: ... / own: yes|no (schedule)
@@ -28,6 +29,14 @@ def load(name, default):
 
 def save(name, obj):
     (DATA / name).write_text(json.dumps(obj, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+def set_cameo(vid, on):
+    """collab_cameo.json（少しだけ参加した他枠の動画 ID の一覧）に入れる・外す。"""
+    items = [x for x in load("collab_cameo.json", []) if x != vid]
+    if on:
+        items.append(vid)
+    save("collab_cameo.json", items)
 
 
 def prune_plans(items):
@@ -72,6 +81,14 @@ def main():
         vid = re.search(r"(?:v=|youtu\.be/|/live/|/shorts/)([A-Za-z0-9_-]{11})", url).group(1)
         ex = [x for x in load("collab_exclude.json", []) if vid not in x]
         save("collab_exclude.json", ex)
+        set_cameo(vid, f.get("cameo") == "yes")
+
+    elif t in ("cameo", "uncameo"):
+        # 「少しだけ参加」に変える／コラボの扱いに戻す（凸待ち・通話に一瞬出た など）
+        m = re.search(r"(?:v=|youtu\.be/|/live/|/shorts/)([A-Za-z0-9_-]{11})", f.get("url", ""))
+        if not m:
+            sys.exit("YouTube の URL が読み取れません")
+        set_cameo(m.group(1), t == "cameo")
 
     elif t == "schedule":
         if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+09:00", f.get("start", "")):

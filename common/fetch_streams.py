@@ -507,6 +507,8 @@ def public(rec, own_name):
     out["collabs"] = rec.get("collabs", [])
     if rec.get("unit"):
         out["unit"] = rec["unit"]
+    if rec.get("cameo"):
+        out["cameo"] = True
     return out
 
 
@@ -514,7 +516,12 @@ def merge(own, partners, own_name):
     items = {k: dict(v, collabs=[]) for k, v in own.items()}
     min_overlap = timedelta(minutes=CONFIG.get("collab_min_overlap_minutes", 30))
     kw = keyword_pattern(my_keywords())
+    # 「少しだけ参加」（凸待ち・通話に一瞬出た など）として登録した他枠：コラボ相手としては付けず、単独で表示する
+    cameo = {video_id(x) or x for x in load(DATA / "collab_cameo.json", [])}
     for p in sorted(partners.values(), key=lambda r: r["start"]):
+        if p["id"] in cameo:
+            items[p["id"]] = dict(p, collabs=[], cameo=True)
+            continue
         ps, pe = span(p)
         best, best_ov = None, timedelta(0)
         for o in items.values():
