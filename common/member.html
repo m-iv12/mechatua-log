@@ -148,8 +148,9 @@ h1{margin:0;font-family:var(--font-body);font-weight:700;font-size:clamp(1.3rem,
 .card{position:relative;background:var(--board);border-radius:14px;padding:26px 8px 8px;margin-top:10px}
 .strap{position:absolute;left:50%;top:-12px;transform:translateX(-50%);width:140px;height:26px;border-radius:5px;
   background:linear-gradient(var(--clip),var(--clip-d));box-shadow:0 2px 4px rgb(var(--ink-rgb) / .2);z-index:2}
-.strap::before{content:"";position:absolute;left:50%;top:-14px;transform:translateX(-50%);width:26px;height:26px;border-radius:50%;
-  border:5px solid var(--clip-d);background:transparent;box-sizing:border-box}
+/* 金具の輪：まとめページと同じく、金具の後ろから上半分だけ見える形（輪の下側は金具に隠す） */
+.strap::before{content:"";position:absolute;left:50%;top:-12px;transform:translateX(-50%);width:26px;height:26px;border-radius:50%;
+  border:5px solid var(--clip-d);background:transparent;box-sizing:border-box;clip-path:inset(0 0 14px 0)}
 #view{background:var(--paper);background-image:var(--grid-bg);background-size:16px 16px;border-radius:8px;overflow:hidden}
 
 /* ---- 週 ---- */
