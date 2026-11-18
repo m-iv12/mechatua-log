@@ -303,10 +303,9 @@ h1{margin:0;font-family:var(--font-body);font-weight:700;font-size:clamp(1.3rem,
 .fab::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--desk);margin-left:-6px}
 .fab:hover{background:var(--main-d)}
 /* 見たアーカイブ */
-.seen-mk{position:absolute;right:3px;bottom:3px;z-index:3;width:15px;height:15px;border-radius:50%;background:var(--paper);color:var(--main-d);
-  font-size:.62rem;font-weight:800;line-height:15px;text-align:center;box-shadow:0 0 0 1px var(--main);pointer-events:none}
-.th .seen-mk{right:auto;bottom:auto;left:3px;top:3px}   /* 月表示は右下に日付の数字があるので左上に */
-@media (max-width:480px){.th .seen-mk{width:12px;height:12px;line-height:12px;font-size:.5rem}}
+.ev.seen .pill{background:var(--main);color:var(--on-main);border-color:var(--main)}   /* 見た：時刻の丸を塗る（配信中は濃い色なので区別できる） */
+.mh.seen{background:var(--main);color:var(--on-main)}   /* 見た：月表示はその日の配信を全部見たら時間数の丸を塗る（週表示の時刻の丸と同じ） */
+@media (max-width:480px){.mh.seen{display:block;font-size:.5rem;padding:0 4px;left:2px;top:2px}}   /* スマホは時間数を出していないので、見た日だけ出す */
 .watch-btn{display:block;width:100%;margin:2px 0 12px;border:1.5px solid var(--main);background:var(--paper);color:var(--main-d);border-radius:99px;font-weight:700;font-size:.85rem;padding:7px 0}
 .watch-btn.on{background:var(--main);color:#fff}
 .sync-chip{position:fixed;z-index:15;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(74px + env(safe-area-inset-bottom,0px));
@@ -808,7 +807,7 @@ function watchChip(){
   b.hidden=!watchOn()||!n;if(!b.dataset.busy)b.innerHTML=`<b>未保存</b> 見た ${n}件`;
 }
 window.mlogWatch={pend:()=>WATCH_PEND,chip:()=>watchChip()};   // 追加フォーム側（別の関数のまとまり）から使う
-const seenMk=x=>watchOn()&&isWatched(x.url)?'<span class="seen-mk" aria-label="見た">✓</span>':"";
+const seenCls=x=>watchOn()&&isWatched(x.url)?" seen":"";   // 見た配信：週表示は時刻の丸を塗る（月表示はその日を全部見たら時間数の丸を塗る）
 // 予定メモの日付（日本時間の 0:00）。終了日（なければ開始日）の翌日 0:00 を過ぎたら表示しない
 const jday=s=>Date.parse(String(s).slice(0,10)+"T00:00:00+09:00");
 const T=v=>typeof v==="number"?v:Date.parse(v);
@@ -980,7 +979,7 @@ function renderWeek(){
       const tt=showT?`<span class="tt${showG?"":" solo"}">${esc(cleanTitle(x.title))}</span>`:"";
       const pill=isFirst?`<span class="pill">${isUp(x)?hm(x.start)+"〜":x.status==="live"?"LIVE":hm(x.start)}</span>`:"";
       const inner=`${pill}<span class="evin${bg?" hasth":""}${isFirst?"":" next"}"${bg}>${gl}${tt}</span>`;
-      body+=`<button class="ev gx${cut}${flags(x)}" style="top:${top}%;height:${ht}%" data-id="${x.id}" aria-label="${esc(x.title)} ${hm(x.start)}から">${inner}${seenMk(x)}</button>`;
+      body+=`<button class="ev gx${cut}${flags(x)}${seenCls(x)}" style="top:${top}%;height:${ht}%" data-id="${x.id}" aria-label="${esc(x.title)} ${hm(x.start)}から">${inner}</button>`;
     });
     posts.filter(p=>p.time>=d0&&p.time<d1).forEach(p=>{
       const line=(p.body||"").split("\n").map(t=>t.trim()).find(Boolean)||p.text;
@@ -1004,11 +1003,11 @@ function renderMonth(){
     // 配信開始日のマスにサムネイルを置く（複数あれば縦に分割、最大3枠）
     const started=streams.filter(x=>x.start>=d0&&x.start<d1).sort((a,b)=>a.start-b.start);
     const tot=started.filter(x=>!isUp(x)).reduce((acc,x)=>acc+(x.end-x.start),0);
-    const tiles=started.slice(0,3).map(x=>`<span class="th${flags(x)}" data-id="${x.id}" title="${esc(cleanTitle(x.title))}">${x.thumb?`<img src="${esc(x.thumb)}" alt="" loading="lazy">`:`<span class="ph gx"><b>${esc(gShort(x.game))}</b></span>`}${isUp(x)?'<span class="upl">予定</span>':""}${seenMk(x)}</span>`).join("");
+    const tiles=started.slice(0,3).map(x=>`<span class="th${flags(x)}" data-id="${x.id}" title="${esc(cleanTitle(x.title))}">${x.thumb?`<img src="${esc(x.thumb)}" alt="" loading="lazy">`:`<span class="ph gx"><b>${esc(gShort(x.game))}</b></span>`}${isUp(x)?'<span class="upl">予定</span>':""}</span>`).join("");
     const out=d0<m0||d0>=m1;
     const dn=String(new Date(d0).getDate()).padStart(2,"0");
     h+=`<button class="mc${out?" out":""}${started.length?" has":""}${d0===today?" today":""}" data-day="${d0}" aria-label="${md(d0)}、配信${started.length}件。週表示を開く"${out?' tabindex="-1"':""}>
-      ${tiles}<span class="mn">${dn}</span>${tot?`<span class="mh">${hrs(tot)}h</span>`:""}${(()=>{const tg=dayItems(d0,d0,d1).items;if(!tg.length)return"";
+      ${tiles}<span class="mn">${dn}</span>${tot?`<span class="mh${(()=>{const f=started.filter(x=>!isUp(x)&&vidOf(x.url));return watchOn()&&f.length&&f.every(x=>isWatched(x.url))?" seen":""})()}">${hrs(tot)}h</span>`:""}${(()=>{const tg=dayItems(d0,d0,d1).items;if(!tg.length)return"";
       // PC：2つまでタイトルで（3つ以上は1つ＋ほか○件）。スマホ：「締切」「予定2」のように種類と件数だけ
       const sh=tg.length>2?tg.slice(0,1):tg,nd=tg.filter(m=>m.kind==="dl").length,np=tg.length-nd;
       const pcB=sh.map(m=>`<span class="${m.kind==="dl"?"dl-badge":"pl-badge"} pc-b">${esc(m.t)}</span>`).join("")
