@@ -1214,6 +1214,8 @@ $("prev").onclick=()=>{if(view==="week")cursor=addDays(cursor,-7);else{const c=n
 $("next").onclick=()=>{if(view==="week")cursor=addDays(cursor,7);else{const c=new Date(cursor);cursor=new Date(c.getFullYear(),c.getMonth()+1,1,12).getTime()}render()};
 $("today").onclick=()=>{cursor=Date.now();render()};
 $("backdrop").onclick=closeSheet;$("sh-close").onclick=closeSheet;
+// 詳細の外側（カードの左右・下の余白）を押しても閉じる。外枠の要素が画面の横幅いっぱいにあるため、そこへの押下も拾う
+$("sheet").addEventListener("click",e=>{if(e.target===$("sheet"))closeSheet()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet()});
 getData().then(d=>{normalize(d);if(d.start)cursor=d.start;render()});
 let rz;addEventListener("resize",()=>{closePicker();clearTimeout(rz);rz=setTimeout(render,150)});
