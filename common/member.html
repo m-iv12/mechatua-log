@@ -302,6 +302,16 @@ h1{margin:0;font-family:var(--font-body);font-weight:700;font-size:clamp(1.3rem,
   filter:drop-shadow(0 4px 8px rgb(var(--shade-rgb) / .3))}
 .fab::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--desk);margin-left:-6px}
 .fab:hover{background:var(--main-d)}
+/* 見たアーカイブ */
+.seen-mk{position:absolute;right:3px;bottom:3px;z-index:3;width:15px;height:15px;border-radius:50%;background:var(--paper);color:var(--main-d);
+  font-size:.62rem;font-weight:800;line-height:15px;text-align:center;box-shadow:0 0 0 1px var(--main);pointer-events:none}
+.th .seen-mk{right:auto;bottom:auto;left:3px;top:3px}   /* 月表示は右下に日付の数字があるので左上に */
+@media (max-width:480px){.th .seen-mk{width:12px;height:12px;line-height:12px;font-size:.5rem}}
+.watch-btn{display:block;width:100%;margin:2px 0 12px;border:1.5px solid var(--main);background:var(--paper);color:var(--main-d);border-radius:99px;font-weight:700;font-size:.85rem;padding:7px 0}
+.watch-btn.on{background:var(--main);color:#fff}
+.sync-chip{position:fixed;z-index:15;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(74px + env(safe-area-inset-bottom,0px));
+  border:1.5px solid var(--main);background:var(--paper);color:var(--main-d);border-radius:99px;font-size:.78rem;padding:6px 12px;box-shadow:0 2px 6px rgb(0 0 0 / .12)}
+.sync-chip b{background:var(--main);color:#fff;border-radius:99px;padding:0 6px;margin-right:5px;font-size:.7rem}
 .form{display:flex;flex-direction:column;gap:12px}
 #add-title{font-family:var(--font-body)}
 .types{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
@@ -588,6 +598,7 @@ h1{font-size:1rem;letter-spacing:.02em;white-space:nowrap}
 </div>
 
 <button class="fab" id="add-open" type="button" hidden>追加</button>
+<button class="sync-chip" id="watch-sync" type="button" hidden></button>
 <div id="add-sheet" class="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="add-title">
   <div class="sheet-in">
     <div class="sheet-top"><h3 id="add-title" style="margin:0">予定・配信を追加</h3><button class="round" id="add-close" type="button" aria-label="閉じる"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></div>
@@ -762,11 +773,42 @@ async function getData(){
   const pkey=x=>(x.title||"")+"|"+x.start;
   const pk=new Set(sharedPl.map(pkey));
   const plans=sharedPl.concat((Array.isArray(own_pl)?own_pl:[]).filter(x=>!pk.has(pkey(x))));
+  const watched=await get(SHARED_BASE+"watched.json");   // 見たアーカイブ（動画 ID の一覧。8人共通）
   applyConfig(cfg);
-  return {streams,posts,deadlines,plans};
+  return {streams,posts,deadlines,plans,watched};
 }
 
 let events=[],streams=[],posts=[],deadlines=[],plans=[];
+// ---- 見たアーカイブ（#edit の端末だけで使う）----
+// チェックはまずこの端末に保存し（押すだけで反映）、右下の「未保存」から GitHub にまとめて保存する。
+// GitHub に入った分（common/watched.json）は、どの端末で開いても ✓ が付く。保存が済むまで「未保存」の表示は消えない
+const WATCH_KEY="mlog-watched-v1";
+let WATCH_REMOTE=new Set(),WATCH_PEND={add:[],del:[]};
+try{const v=JSON.parse(localStorage.getItem(WATCH_KEY)||"null");if(v&&Array.isArray(v.add))WATCH_PEND={add:v.add,del:Array.isArray(v.del)?v.del:[]}}catch(e){}
+const vidOf=u=>{const m=String(u||"").match(/(?:v=|youtu\.be\/|\/live\/|\/shorts\/)([A-Za-z0-9_-]{11})/);return m?m[1]:null};
+const watchSave=()=>{try{localStorage.setItem(WATCH_KEY,JSON.stringify(WATCH_PEND))}catch(e){}};
+const isWatched=u=>{const v=vidOf(u);if(!v||WATCH_PEND.del.includes(v))return false;return WATCH_PEND.add.includes(v)||WATCH_REMOTE.has(v)};
+const watchOn=()=>document.body.classList.contains("edit");
+function watchSetRemote(arr){
+  WATCH_REMOTE=new Set(Array.isArray(arr)?arr:[]);
+  WATCH_PEND.add=WATCH_PEND.add.filter(v=>!WATCH_REMOTE.has(v));      // GitHub に入った分は「未保存」から外す
+  WATCH_PEND.del=WATCH_PEND.del.filter(v=>WATCH_REMOTE.has(v));
+  watchSave();
+}
+function watchToggle(u){
+  const v=vidOf(u);if(!v)return;const was=isWatched(u);
+  WATCH_PEND.add=WATCH_PEND.add.filter(x=>x!==v);WATCH_PEND.del=WATCH_PEND.del.filter(x=>x!==v);
+  if(!was&&!WATCH_REMOTE.has(v))WATCH_PEND.add.push(v);
+  if(was&&WATCH_REMOTE.has(v))WATCH_PEND.del.push(v);
+  watchSave();watchChip();
+}
+function watchChip(){
+  const b=document.getElementById("watch-sync");if(!b)return;
+  const n=WATCH_PEND.add.length+WATCH_PEND.del.length;
+  b.hidden=!watchOn()||!n;if(!b.dataset.busy)b.innerHTML=`<b>未保存</b> 見た ${n}件`;
+}
+window.mlogWatch={pend:()=>WATCH_PEND,chip:()=>watchChip()};   // 追加フォーム側（別の関数のまとまり）から使う
+const seenMk=x=>watchOn()&&isWatched(x.url)?'<span class="seen-mk" aria-label="見た">✓</span>':"";
 // 予定メモの日付（日本時間の 0:00）。終了日（なければ開始日）の翌日 0:00 を過ぎたら表示しない
 const jday=s=>Date.parse(String(s).slice(0,10)+"T00:00:00+09:00");
 const T=v=>typeof v==="number"?v:Date.parse(v);
@@ -780,6 +822,7 @@ function normalize(d){
       game:normGame(x.game||gameOf(x.title)),title:x.title||"",start:s,end:e,url:x.url||"https://www.youtube.com/",thumb:x.thumb||null,collabs:x.collabs||[]};
   });
   unifyGames(streams);
+  watchSetRemote(d.watched);watchChip();
   posts=(d.posts||[]).filter(x=>x.time).map((x,i)=>({id:"p"+i,kind:"post",ann:x.kind==="announce",time:T(x.time),
     text:x.text||(x.kind==="announce"?"配信告知":"ポスト"),body:x.body||"",url:x.url||"https://x.com/"}));
   deadlines=(d.deadlines||[]).filter(x=>x.deadline).map((x,i)=>({id:"d"+i,kind:"deadline",title:x.title||"締切",shared:!!x.shared,time:T(x.deadline),url:x.url||"https://x.com/"}));
@@ -937,7 +980,7 @@ function renderWeek(){
       const tt=showT?`<span class="tt${showG?"":" solo"}">${esc(cleanTitle(x.title))}</span>`:"";
       const pill=isFirst?`<span class="pill">${isUp(x)?hm(x.start)+"〜":x.status==="live"?"LIVE":hm(x.start)}</span>`:"";
       const inner=`${pill}<span class="evin${bg?" hasth":""}${isFirst?"":" next"}"${bg}>${gl}${tt}</span>`;
-      body+=`<button class="ev gx${cut}${flags(x)}" style="top:${top}%;height:${ht}%" data-id="${x.id}" aria-label="${esc(x.title)} ${hm(x.start)}から">${inner}</button>`;
+      body+=`<button class="ev gx${cut}${flags(x)}" style="top:${top}%;height:${ht}%" data-id="${x.id}" aria-label="${esc(x.title)} ${hm(x.start)}から">${inner}${seenMk(x)}</button>`;
     });
     posts.filter(p=>p.time>=d0&&p.time<d1).forEach(p=>{
       const line=(p.body||"").split("\n").map(t=>t.trim()).find(Boolean)||p.text;
@@ -961,7 +1004,7 @@ function renderMonth(){
     // 配信開始日のマスにサムネイルを置く（複数あれば縦に分割、最大3枠）
     const started=streams.filter(x=>x.start>=d0&&x.start<d1).sort((a,b)=>a.start-b.start);
     const tot=started.filter(x=>!isUp(x)).reduce((acc,x)=>acc+(x.end-x.start),0);
-    const tiles=started.slice(0,3).map(x=>`<span class="th${flags(x)}" data-id="${x.id}" title="${esc(cleanTitle(x.title))}">${x.thumb?`<img src="${esc(x.thumb)}" alt="" loading="lazy">`:`<span class="ph gx"><b>${esc(gShort(x.game))}</b></span>`}${isUp(x)?'<span class="upl">予定</span>':""}</span>`).join("");
+    const tiles=started.slice(0,3).map(x=>`<span class="th${flags(x)}" data-id="${x.id}" title="${esc(cleanTitle(x.title))}">${x.thumb?`<img src="${esc(x.thumb)}" alt="" loading="lazy">`:`<span class="ph gx"><b>${esc(gShort(x.game))}</b></span>`}${isUp(x)?'<span class="upl">予定</span>':""}${seenMk(x)}</span>`).join("");
     const out=d0<m0||d0>=m1;
     const dn=String(new Date(d0).getDate()).padStart(2,"0");
     h+=`<button class="mc${out?" out":""}${started.length?" has":""}${d0===today?" today":""}" data-day="${d0}" aria-label="${md(d0)}、配信${started.length}件。週表示を開く"${out?' tabindex="-1"':""}>
@@ -1038,6 +1081,9 @@ function openSheet(ev){
       ex.innerHTML=`<p class="ex-h"><span>コラボ相手の枠</span>${opt}</p><ul class="cl">`+ev.collabs.map(c=>
         `<li><a href="${esc(c.url)}" target="_blank" rel="noopener"><b>${esc(c.channel)}</b><span>${esc(c.title||"")}</span><i aria-hidden="true">↗</i></a>${del(c.url,c.title||"","除外")}${cam(c.url,c.title||"",true)}</li>`).join("")+"</ul>";
     }
+    // 見た（#edit の端末だけ。終わった YouTube の配信）
+    if(canEdit&&vidOf(ev.url)&&!isUp(ev)&&ev.status!=="live"){const on=isWatched(ev.url);
+      ex.insertAdjacentHTML("afterbegin",`<button type="button" class="watch-btn${on?" on":""}" data-url="${esc(ev.url)}" aria-pressed="${on}">${on?"✓ 見た":"見た"}</button>`)}
     // 本人の枠がない単独カード（手動の予定は除く）
     if(!ev.own&&!ev.manual&&canEdit&&/youtube\.com|youtu\.be/.test(ev.url)){
       ex.innerHTML+=`<p class="ex-h"><span>この配信</span>${opt}</p><div class="ex-self">${del(ev.url,ev.title,"この配信を除外")}${cam(ev.url,ev.title,!ev.cameo)}</div>`;
@@ -1101,6 +1147,8 @@ $("deadlines").addEventListener("click",e=>{const b=e.target.closest("[data-id]"
 $("plans").addEventListener("click",e=>{const b=e.target.closest("[data-id]");if(b){const ev=events.find(x=>x.id===b.dataset.id);if(ev)openSheet(ev)}});
 // コラボ相手の枠の除外（GitHub の Issue で登録。押すと確認表示 → もう一度押すと登録画面へ）
 $("sh-extra").addEventListener("click",e=>{
+  const wb=e.target.closest(".watch-btn");
+  if(wb){watchToggle(wb.dataset.url);const on=isWatched(wb.dataset.url);wb.classList.toggle("on",on);wb.setAttribute("aria-pressed",on);wb.textContent=on?"✓ 見た":"見た";render();return}
   // 予定メモを消す（GitHub の Issue で登録。押すと確認表示 → もう一度押すと登録画面へ）
   const pd=e.target.closest(".pl-del");
   if(pd){
@@ -1185,6 +1233,16 @@ const SHOW_ADD_ALWAYS=false; // 「追加」ボタンは URL の末尾に #edit 
   const open=()=>{bd.hidden=false;sheet.hidden=false;$("f-done").hidden=true;$("f-err").textContent="";$("add-close").focus()};
   const close=()=>{sheet.hidden=true;if($("sheet").hidden)bd.hidden=true};
   $("add-open").onclick=open;$("add-close").onclick=close;
+  // 見たアーカイブを GitHub にまとめて保存（Issue を1つ作るだけ。保存が済むと「未保存」は自動で消える）
+  $("watch-sync").onclick=()=>{
+    const W=window.mlogWatch;if(!W)return;const b=$("watch-sync"),a=W.pend().add,d=W.pend().del;if(!a.length&&!d.length)return;
+    const title=`[追加] 見たアーカイブ ${a.length+d.length}件`;
+    const body=`type: watched\nadd: ${a.join(" ")}\ndel: ${d.join(" ")}\n\n（このまま Create を押してください。内容を書き換えないでください）`;
+    if(!REPO){b.textContent="サンプルのため送信しません";return}
+    window.open(`https://github.com/${SHARED_REPO()}/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`,"_blank","noopener");
+    b.dataset.busy="1";b.textContent="GitHub で Create → 数分で保存";setTimeout(()=>{delete b.dataset.busy;W.chip()},15000);
+  };
+  if(window.mlogWatch)window.mlogWatch.chip();
   bd.addEventListener("click",close);
   document.addEventListener("keydown",e=>{if(e.key==="Escape")close()});
   const type=()=>document.querySelector('input[name="ftype"]:checked').value;

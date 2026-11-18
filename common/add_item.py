@@ -1,7 +1,7 @@
 """ページの「追加」から作られた GitHub Issue の本文を読み、data/*.json に書き足す。
 
 本文の形式（1行1項目）:
-  type: collab | schedule | post | deadline | exclude | plan | unplan | cameo | uncameo
+  type: collab | schedule | post | deadline | exclude | plan | unplan | cameo | uncameo | watched
   cameo: yes                          (collab：少しだけ参加。コラボ相手として付けず単独で表示)
   url: ...
   start: 2026-11-03T20:00:00+09:00   (schedule)
@@ -128,6 +128,17 @@ def main():
         # 手動で登録していた場合は登録も外す
         save("collab_videos.json", [x for x in load("collab_videos.json", []) if vid not in x])
 
+    elif t == "watched":
+        # 見たアーカイブ：watched.json（動画 ID の一覧）に入れる・外す。「add: ID ID …」「del: ID …」
+        ids = lambda k: re.findall(r"[A-Za-z0-9_-]{11}", f.get(k, ""))
+        items = load("watched.json", [])
+        rm = set(ids("del"))
+        items = [x for x in items if x not in rm]
+        for v in ids("add"):
+            if v not in items:
+                items.append(v)
+        save("watched.json", items)
+
     elif t == "plan":
         # 予定メモ：まだ枠のない先の予定（大会・サーバー企画など）。終了日（なければ開始日）が過ぎたら消す
         start, end = f.get("start", ""), f.get("end", "")
@@ -195,7 +206,7 @@ def main():
         sys.exit("type が読み取れません")
     print("追加しました:", t)
     # ポスト・締切は YouTube のデータを使わないので、このあとの取得では YouTube に問い合わせない（API の使用量を節約）
-    if t in ("post", "deadline", "schedule", "plan", "unplan"):
+    if t in ("post", "deadline", "schedule", "plan", "unplan", "watched"):
         Path(NO_YOUTUBE).parent.mkdir(parents=True, exist_ok=True)
         Path(NO_YOUTUBE).touch()
 
